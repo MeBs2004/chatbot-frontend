@@ -323,13 +323,13 @@ if (
   h-[547px]
   bg-[#f7f7f7]
   rounded-[28px]
-  shadow-2xl
   overflow-hidden
   flex
   flex-col
   z-50
   border
   border-[#dcdcdc]
+  p-3
   transition-all
   duration-500
   ${
