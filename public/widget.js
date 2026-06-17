@@ -10,10 +10,12 @@
   iframe.style.right = "20px";
   iframe.style.width = "370px";
   iframe.style.height = "560px";
-  iframe.style.border = "none";
-  iframe.style.background = "transparent";
+  iframe.style.border = "3px solid red";
   iframe.style.zIndex = "999999";
+  iframe.style.background = "white";
 
   document.body.appendChild(iframe);
+
+  console.log("Nuform Widget Loaded");
 
 })();
