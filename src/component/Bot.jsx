@@ -246,7 +246,7 @@ if (
 
       setEmailAsked(true);
     }
-
+    
     return updatedMessages;
   });
 }
