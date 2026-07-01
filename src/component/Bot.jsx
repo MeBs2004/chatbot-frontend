@@ -16,7 +16,6 @@ import {
 } from "react-icons/fa";
 
 function Bot() {
-  
   const [emailAsked, setEmailAsked] = useState(false);
 
   const [userEmail, setUserEmail] = useState("");
@@ -41,239 +40,175 @@ function Bot() {
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+  const axiosConfig = {
+    headers: {
+      "x-company-id": "nuform-social",
+    },
+  };
+
   // Auto Scroll
   useEffect(() => {
-
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
-
   }, [messages, loading]);
 
   // Popup Animation
-useEffect(() => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAnimateBot(true);
+    }, 200);
 
-  const timer = setTimeout(() => {
-
-    setAnimateBot(true);
-
-  }, 200);
-
-  return () => clearTimeout(timer);
-
-}, []);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Load Chat History
-useEffect(() => {
+  useEffect(() => {
+    const savedMessages = localStorage.getItem("nuform_chat_history");
 
-  const savedMessages =
-    localStorage.getItem("nuform_chat_history");
+    if (savedMessages && JSON.parse(savedMessages).length > 0) {
+      setMessages(JSON.parse(savedMessages));
 
-  if (
-    savedMessages &&
-    JSON.parse(savedMessages).length > 0
-  ) {
+      setShowSuggestions(false);
+    }
 
-    setMessages(JSON.parse(savedMessages));
+    const savedEmail = localStorage.getItem("nuform_user_email");
 
-    setShowSuggestions(false);
-  }
-
-  const savedEmail =
-    localStorage.getItem("nuform_user_email");
-
-  if (savedEmail) {
-    setUserEmail(savedEmail);
-  }
-
-}, []);
+    if (savedEmail) {
+      setUserEmail(savedEmail);
+    }
+  }, []);
 
   // Save Chat History
   useEffect(() => {
-
     if (messages.length > 0) {
-
-      localStorage.setItem(
-        "nuform_chat_history",
-        JSON.stringify(messages)
-      );
+      localStorage.setItem("nuform_chat_history", JSON.stringify(messages));
     }
-
   }, [messages]);
-  
-  
+
   // Fetch Suggestions
-useEffect(() => {
-
-  const fetchSuggestions = async () => {
-
-  try {
-
-    console.log("BACKEND_URL =", BACKEND_URL);
-
-    console.log(
-      `${BACKEND_URL}bot/v1/suggestions?language=${language}`
-    );
-
-    const res = await axios.get(
-      `${BACKEND_URL}bot/v1/suggestions`,
-      {
-        params: {
-          language: language
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      try {
+        const res = await axios.get(`${BACKEND_URL}bot/v1/suggestions`, {
+          params: {
+            language,
+          },
+          headers: {
+            "x-company-id": "nuform-social",
+          },
+        });
+        if (res.data.success) {
+          setSuggestions([]);
+          setTimeout(() => {
+            setSuggestions(res.data.suggestions);
+          }, 0);
         }
+      } catch (error) {
+        console.log("Suggestion Error:", error);
       }
-    );
+    };
 
-      console.log("Language:", language);
-      console.log("Suggestions:");
-res.data.suggestions.forEach((item, i) =>
-  console.log(i, item)
-);
+    fetchSuggestions();
+  }, [language]);
 
-      if (res.data.success) {
+  useEffect(() => {
+    const saveVisitor = async () => {
+      try {
+        let visitorId = localStorage.getItem("visitorId");
 
-        setSuggestions([]);
-setTimeout(() => {
-  setSuggestions(res.data.suggestions);
-}, 0);
+        if (!visitorId) {
+          visitorId = crypto.randomUUID();
 
-      }
+          localStorage.setItem("visitorId", visitorId);
+        }
 
-    } catch (error) {
-
-      console.log("Suggestion Error:", error);
-
-    }
-
-  };
-
-  fetchSuggestions();
-
-}, [language]);
-
-useEffect(() => {
-
-  const saveVisitor = async () => {
-
-    try {
-
-      let visitorId = localStorage.getItem("visitorId");
-
-      if (!visitorId) {
-
-        visitorId = crypto.randomUUID();
-
-        localStorage.setItem(
-          "visitorId",
-          visitorId
+        const response = await axios.post(
+          `${BACKEND_URL}bot/v1/visitor`,
+          {
+            visitorId,
+            browser: navigator.userAgent,
+            os: navigator.platform,
+            device: window.innerWidth < 768 ? "Mobile" : "Desktop",
+            language: navigator.language,
+            page: window.location.href,
+          },
+          {
+            headers: {
+              "x-company-id": "nuform-social",
+            },
+          },
         );
 
+        console.log(response.data);
+      } catch (error) {
+        console.log("Visitor Tracking Error");
+
+        console.log(error);
       }
+    };
 
-      const response = await axios.post(
-        `${BACKEND_URL}bot/v1/visitor`,
-        {
+    saveVisitor();
+  }, []);
 
-          visitorId,
-
-          browser: navigator.userAgent,
-
-          os: navigator.platform,
-
-          device:
-            window.innerWidth < 768
-              ? "Mobile"
-              : "Desktop",
-
-          language: navigator.language,
-
-          page: window.location.href,
-
-        }
-
-      );
-
-      console.log(response.data);
-
-    }
-
-    catch (error) {
-
-      console.log("Visitor Tracking Error");
-
-      console.log(error);
-
-    }
-
-  };
-
-  saveVisitor();
-
-}, []);
   // Send Message
   const handleSendMessage = async (customMessage = null) => {
-
     const messageText = customMessage || input;
 
     if (!messageText.trim()) return;
 
-  // Save Email If User Enters One
-if (
-  emailAsked &&
-  !userEmail &&
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(messageText)
-) {
+    // Save Email If User Enters One
+    if (
+      emailAsked &&
+      !userEmail &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(messageText)
+    ) {
+      setUserEmail(messageText);
+      setEmailAsked(false);
 
-  setUserEmail(messageText);
-  setEmailAsked(false);
+      localStorage.setItem("nuform_user_email", messageText);
 
-  localStorage.setItem(
-    "nuform_user_email",
-    messageText
-  );
+      try {
+        const response = await axios.post(
+          `${BACKEND_URL}bot/v1/visitor/email`,
+          {
+            visitorId: localStorage.getItem("visitorId"),
+            email: messageText,
+          },
+          {
+            headers: {
+              "x-company-id": "nuform-social",
+            },
+          },
+        );
 
-  try {
+        console.log("EMAIL SAVED SUCCESSFULLY");
+        console.log(response.data);
+      } catch (error) {
+        console.log("EMAIL SAVE FAILED");
 
-  const response = await axios.post(
-    `${BACKEND_URL}bot/v1/visitor/email`,
-    {
-      visitorId: localStorage.getItem("visitorId"),
-      email: messageText,
+        console.log(error);
+
+        console.log(error.response?.data);
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          text: messageText,
+          sender: "user",
+        },
+        {
+          text: "✅ Thank you! We've saved your email address. How else can we help you today?",
+          sender: "bot",
+        },
+      ]);
+
+      setInput("");
+
+      return;
     }
-  );
 
-  console.log("EMAIL SAVED SUCCESSFULLY");
-  console.log(response.data);
-
-}
-
-catch (error) {
-
-  console.log("EMAIL SAVE FAILED");
-
-  console.log(error);
-
-  console.log(error.response?.data);
-
-}
-
-  setMessages((prev) => [
-    ...prev,
-    {
-      text: messageText,
-      sender: "user",
-    },
-    {
-      text:
-        "✅ Thank you! We've saved your email address. How else can we help you today?",
-      sender: "bot",
-    },
-  ]);
-
-  setInput("");
-
-  return;
-}
     // Add User Message
     const userMessage = {
       text: messageText,
@@ -289,55 +224,45 @@ catch (error) {
     setShowSuggestions(false);
 
     try {
-
       const res = await axios.post(
-  `${BACKEND_URL}bot/v1/message`,
-  {
-    text: messageText,
-    language,
-    visitorId: localStorage.getItem("visitorId"),
-  }
-);
-
+        `${BACKEND_URL}bot/v1/message`,
+        {
+          text: messageText,
+          language,
+          visitorId: localStorage.getItem("visitorId"),
+        },
+        {
+          headers: {
+            "x-company-id": "nuform-social",
+          },
+        },
+      );
       if (res.data.success) {
+        const botMessage = {
+          text: res.data.botMessage,
+          sender: "bot",
+        };
 
-  const botMessage = {
-    text: res.data.botMessage,
-    sender: "bot",
-  };
+        setMessages((prev) => {
+          const updatedMessages = [...prev, botMessage];
 
-  setMessages((prev) => {
+          const userCount = updatedMessages.filter(
+            (msg) => msg.sender === "user",
+          ).length;
 
-    const updatedMessages = [
-      ...prev,
-      botMessage,
-    ];
+          if (userCount >= 3 && !emailAsked && !userEmail) {
+            updatedMessages.push({
+              text: "📧 Before we continue, could you please share your email address so our team can assist you better?",
+              sender: "bot",
+            });
 
-    const userCount = updatedMessages.filter(
-      (msg) => msg.sender === "user"
-    ).length;
+            setEmailAsked(true);
+          }
 
-    if (
-      userCount >= 3 &&
-      !emailAsked &&
-      !userEmail
-    ) {
-
-      updatedMessages.push({
-        text:
-          "📧 Before we continue, could you please share your email address so our team can assist you better?",
-        sender: "bot",
-      });
-
-      setEmailAsked(true);
-    }
-    
-    return updatedMessages;
-  });
-}
-
+          return updatedMessages;
+        });
+      }
     } catch (error) {
-
       console.log("Message Error:", error);
 
       setMessages((prev) => [
@@ -347,41 +272,34 @@ catch (error) {
           sender: "bot",
         },
       ]);
-
     } finally {
-
       setLoading(false);
     }
   };
 
   // Clear History
   const clearChatHistory = () => {
+    localStorage.removeItem("nuform_chat_history");
+    localStorage.removeItem("nuform_user_email");
 
-  localStorage.removeItem("nuform_chat_history");
-  localStorage.removeItem("nuform_user_email");
+    setMessages([]);
+    setUserEmail("");
+    setEmailAsked(false);
 
-  setMessages([]);
-  setUserEmail("");
-  setEmailAsked(false);
-
-  setShowSuggestions(true);
-};
+    setShowSuggestions(true);
+  };
 
   // Enter Key
   const handleKeyPress = (e) => {
-
     if (e.key === "Enter") {
-
       handleSendMessage();
     }
   };
 
   return (
     <>
-
       {/* Floating Button */}
       {!openBot && (
-
         <button
           onClick={() => setOpenBot(true)}
           className="
@@ -403,7 +321,6 @@ catch (error) {
             duration-300
           "
         >
-
           <img
             src={logo}
             alt="Logo"
@@ -414,40 +331,36 @@ catch (error) {
               rounded-full
             "
           />
-
         </button>
-
       )}
 
       {/* Chatbot */}
       {openBot && (
-
         <div
           className={`
-  fixed
-  bottom-5
-  right-5
-  w-[365px]
-  h-[547px]
-  bg-[#f7f7f7]
-  rounded-[28px]
-  overflow-hidden
-  flex
-  flex-col
-  z-50
-  border
-  border-[#dcdcdc]
-  -m-3
-  transition-all
-  duration-500
-  ${
-    animateBot
-      ? "opacity-100 translate-y-0 scale-100"
-      : "opacity-0 translate-y-10 scale-95"
-  }
-`}
+            fixed
+            bottom-5
+            right-5
+            w-[365px]
+            h-[547px]
+            bg-[#f7f7f7]
+            rounded-[28px]
+            overflow-hidden
+            flex
+            flex-col
+            z-50
+            border
+            border-[#dcdcdc]
+            -m-3
+            transition-all
+            duration-500
+            ${
+              animateBot
+                ? "opacity-100 translate-y-0 scale-100"
+                : "opacity-0 translate-y-10 scale-95"
+            }
+          `}
         >
-
           {/* Header */}
           <div
             className="
@@ -459,14 +372,11 @@ catch (error) {
               text-white
             "
             style={{
-              background:
-                "linear-gradient(135deg, #0d5537 0%, #067647 100%)",
+              background: "linear-gradient(135deg, #0d5537 0%, #067647 100%)",
             }}
           >
-
             {/* Left */}
             <div className="flex items-center gap-3">
-
               <div
                 className="
                   w-[40px]
@@ -479,7 +389,6 @@ catch (error) {
                   overflow-hidden
                 "
               >
-
                 <img
                   src={logo}
                   alt="Logo"
@@ -490,17 +399,14 @@ catch (error) {
                     rounded-[8px]
                   "
                 />
-
               </div>
 
               <div>
-
                 <h2 className="font-semibold text-[15px] leading-none whitespace-nowrap">
                   Nuform Social Assistant
                 </h2>
 
                 <div className="flex items-center gap-2 mt-[5px]">
-
                   <span
                     className="
                       w-[6px]
@@ -515,16 +421,12 @@ catch (error) {
                   <p className="text-[11px] text-[#d5f5e3] leading-none">
                     Online · Always ready
                   </p>
-
                 </div>
-
               </div>
-
             </div>
 
             {/* Right */}
             <div className="flex items-center gap-2">
-
               {/* Clear History */}
               <button
                 onClick={clearChatHistory}
@@ -564,7 +466,6 @@ catch (error) {
                 <option value="Hindi" className="text-black">
                   हिं
                 </option>
-
               </select>
 
               {/* Close */}
@@ -582,9 +483,7 @@ catch (error) {
               >
                 <FaTimes size={13} />
               </button>
-
             </div>
-
           </div>
 
           {/* Chat Area */}
@@ -596,10 +495,8 @@ catch (error) {
               py-4
             "
           >
-
             {/* Welcome */}
             {messages.length === 0 && (
-
               <div
                 className="
                   bg-[#edf7f1]
@@ -613,135 +510,115 @@ catch (error) {
                   mb-5
                 "
               >
-
-                {
-language === "Hindi" ? (
-  <>
-    👋 नमस्ते! मैं Nuform Social Assistant हूँ।
-
-    चाहे आप अपना ब्रांड बढ़ाना चाहते हों,
-    वेबसाइट बनवाना चाहते हों या उच्च-ROI
-    कैंपेन चलाना चाहते हों — मैं आपकी सहायता के लिए यहाँ हूँ।
-
-    आज आप किस उद्देश्य से आए हैं?
-  </>
-) : (
-  <>
-    👋 Hey! I'm the Nuform Social Assistant.
-
-    Whether you're looking to grow your
-    brand, build a website, or run high-ROI
-    campaigns — I'm here to help.
-
-    What brings you here today?
-  </>
-)
-}
-
+                {language === "Hindi" ? (
+                  <>
+                    👋 नमस्ते! मैं Nuform Social Assistant हूँ। चाहे आप अपना
+                    ब्रांड बढ़ाना चाहते हों, वेबसाइट बनवाना चाहते हों या
+                    उच्च-ROI कैंपेन चलाना चाहते हों — मैं आपकी सहायता के लिए
+                    यहाँ हूँ। आज आप किस उद्देश्य से आए हैं?
+                  </>
+                ) : (
+                  <>
+                    👋 Hey! I'm the Nuform Social Assistant. Whether you're
+                    looking to grow your brand, build a website, or run high-ROI
+                    campaigns — I'm here to help. What brings you here today?
+                  </>
+                )}
               </div>
-
             )}
 
             {messages.length === 0 && (
+              <div className="flex gap-2 mb-5">
+                <a
+                  href="tel:+919902421936"
+                  className="
+                    flex
+                    items-center
+                    justify-center
+                    gap-2
+                    flex-1
+                    px-3
+                    py-2
+                    rounded-full
+                    text-white
+                    bg-[#067647]
+                    text-[12px]
+                    font-medium
+                  "
+                >
+                  <FaPhoneAlt size={13} />
+                  <span>Call</span>
+                </a>
 
-  <div className="flex gap-2 mb-5">
+                <a
+                  href="https://wa.me/919902421936"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="
+                    flex
+                    items-center
+                    justify-center
+                    gap-2
+                    flex-1
+                    px-3
+                    py-2
+                    rounded-full
+                    bg-[#25D366]
+                    text-white
+                    text-[12px]
+                    font-medium
+                  "
+                >
+                  <FaWhatsapp size={14} />
+                  <span>WhatsApp</span>
+                </a>
 
-    <a
-      href="tel:+919902421936"
-      className="
-    flex
-  items-center
-  justify-center
-  gap-2
-  flex-1
-  px-3
-  py-2
-  rounded-full
-  text-white
-  bg-[#067647]
-  text-[12px]
-  font-medium
-      "
-    >
-      <FaPhoneAlt size={13} />
-<span>Call</span>
-    </a>
-
-    <a
-  href="https://wa.me/919902421936"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="
-    flex
-    items-center
-    justify-center
-    gap-2
-    flex-1
-    px-3
-    py-2
-    rounded-full
-    bg-[#25D366]
-    text-white
-    text-[12px]
-    font-medium
-  "
->
-       <FaWhatsapp size={14} />
-  <span>WhatsApp</span>
-    </a>
-
-    <a
-  href="mailto:info@nuformsocial.com"
-  className="
-    flex
-    items-center
-    justify-center
-    gap-2
-    flex-1
-    px-3
-    py-2
-    rounded-full
-    bg-[#e36b0a]
-    text-white
-    text-[12px]
-    font-medium
-  "
->
-     <FaEnvelope size={13} />
-  <span>Email</span>
-    </a>
-
-  </div>
-
-)}
+                <a
+                  href="mailto:info@nuformsocial.com"
+                  className="
+                    flex
+                    items-center
+                    justify-center
+                    gap-2
+                    flex-1
+                    px-3
+                    py-2
+                    rounded-full
+                    bg-[#e36b0a]
+                    text-white
+                    text-[12px]
+                    font-medium
+                  "
+                >
+                  <FaEnvelope size={13} />
+                  <span>Email</span>
+                </a>
+              </div>
+            )}
 
             {/* Messages */}
             {messages.map((msg, index) => (
-
               <div
-  key={index}
-  className={`flex mb-4 ${
-    msg.sender === "user"
-      ? "justify-end"
-      : "justify-start"
-  }`}
->
-
-  {msg.sender === "bot" && (
-    <img
-      src={logo}
-      alt="Bot"
-      className="
-        w-[32px]
-        h-[32px]
-        rounded-full
-        object-cover
-        mr-2
-        mt-1
-        flex-shrink-0
-      "
-    />
-  )}
+                key={index}
+                className={`flex mb-4 ${
+                  msg.sender === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                {msg.sender === "bot" && (
+                  <img
+                    src={logo}
+                    alt="Bot"
+                    className="
+                      w-[32px]
+                      h-[32px]
+                      rounded-full
+                      object-cover
+                      mr-2
+                      mt-1
+                      flex-shrink-0
+                    "
+                  />
+                )}
 
                 <div
                   className={`
@@ -760,7 +637,6 @@ language === "Hindi" ? (
                     }
                   `}
                 >
-
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -774,24 +650,15 @@ language === "Hindi" ? (
                       ),
 
                       ul: ({ node, ...props }) => (
-                        <ul
-                          {...props}
-                          className="list-disc pl-5 my-2"
-                        />
+                        <ul {...props} className="list-disc pl-5 my-2" />
                       ),
 
                       ol: ({ node, ...props }) => (
-                        <ol
-                          {...props}
-                          className="list-decimal pl-5 my-2"
-                        />
+                        <ol {...props} className="list-decimal pl-5 my-2" />
                       ),
 
                       h1: ({ node, ...props }) => (
-                        <h1
-                          {...props}
-                          className="text-[20px] font-bold mb-2"
-                        />
+                        <h1 {...props} className="text-[20px] font-bold mb-2" />
                       ),
 
                       h2: ({ node, ...props }) => (
@@ -809,32 +676,22 @@ language === "Hindi" ? (
                       ),
 
                       p: ({ node, ...props }) => (
-                        <p
-                          {...props}
-                          className="mb-2"
-                        />
+                        <p {...props} className="mb-2" />
                       ),
 
                       strong: ({ node, ...props }) => (
-                        <strong
-                          {...props}
-                          className="font-bold"
-                        />
+                        <strong {...props} className="font-bold" />
                       ),
                     }}
                   >
                     {msg.text}
                   </ReactMarkdown>
-
                 </div>
-
               </div>
-
             ))}
 
             {/* Loading */}
             {loading && (
-
               <div
                 className="
                   inline-flex
@@ -850,7 +707,6 @@ language === "Hindi" ? (
                   shadow-sm
                 "
               >
-
                 <span className="w-[8px] h-[8px] rounded-full bg-[#00c853] animate-bounce"></span>
 
                 <span
@@ -862,14 +718,11 @@ language === "Hindi" ? (
                   className="w-[8px] h-[8px] rounded-full bg-[#ff9100] animate-bounce"
                   style={{ animationDelay: "0.3s" }}
                 ></span>
-
               </div>
-
             )}
 
             {/* Suggestions */}
             {showSuggestions && suggestions.length > 0 && (
-
               <div
                 className="
                   grid
@@ -878,11 +731,7 @@ language === "Hindi" ? (
                   mt-3
                 "
               >
-
-                {console.log("Rendering suggestions:", suggestions)}
-
-{suggestions.map((item, index) => (
-
+                {suggestions.map((item, index) => (
                   <button
                     key={index}
                     onClick={() => handleSendMessage(item)}
@@ -908,15 +757,11 @@ language === "Hindi" ? (
                   >
                     {item}
                   </button>
-
                 ))}
-
               </div>
-
             )}
 
             <div ref={messagesEndRef} />
-
           </div>
 
           {/* Footer */}
@@ -929,7 +774,6 @@ language === "Hindi" ? (
               py-4
             "
           >
-
             <div
               className="
                 flex
@@ -942,7 +786,6 @@ language === "Hindi" ? (
                 bg-white
               "
             >
-
               <input
                 type="text"
                 placeholder="Ask me anything about our services..."
@@ -977,7 +820,6 @@ language === "Hindi" ? (
               >
                 <FaPaperPlane size={14} />
               </button>
-
             </div>
 
             {/* Footer */}
@@ -989,22 +831,16 @@ language === "Hindi" ? (
                 mt-3
               "
             >
-
               Powered by
-
               <span className="text-[#e36b0a] font-semibold">
-                {" "}Nuform Social
+                {" "}
+                Nuform Social
               </span>
-
               &nbsp;&nbsp;nuformsocial.com
-
             </div>
-
           </div>
-
         </div>
       )}
-
     </>
   );
 }
