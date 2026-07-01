@@ -11,7 +11,7 @@
     script.getAttribute("data-position") || "right";
 
   // Replace with your Vercel URL after deployment
-  const BASE_URL = "https://chatbot-frontend-nine-psi.vercel.app/";
+  const BASE_URL = "https://chatbot-frontend-nine-psi.vercel.app";
 
   // Floating Button
   const button = document.createElement("div");
