@@ -10,17 +10,12 @@
   const position =
     script.getAttribute("data-position") || "right";
 
-  // Replace with your Vercel URL after deployment
   const BASE_URL = "https://chatbot-frontend-nine-psi.vercel.app";
 
-  // Floating Button
   const button = document.createElement("div");
-
-  button.innerHTML = "💬";
 
   Object.assign(button.style, {
     position: "fixed",
-    bottom: "20px",
     width: "60px",
     height: "60px",
     borderRadius: "50%",
@@ -29,12 +24,16 @@
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
+    fontSize: "30px",
     cursor: "pointer",
-    fontSize: "28px",
-    boxShadow: "0 8px 25px rgba(0,0,0,.25)",
+    bottom: "20px",
     zIndex: "999999",
-    transition: "all .3s ease",
+    boxShadow: "0 10px 25px rgba(0,0,0,.25)",
+    transition: ".3s",
+    userSelect: "none"
   });
+
+  button.innerHTML = "💬";
 
   if (position === "left") {
     button.style.left = "20px";
@@ -44,26 +43,25 @@
 
   document.body.appendChild(button);
 
-  // Chat Window
   const iframe = document.createElement("iframe");
 
-  iframe.src = `${BASE_URL}/embed?companyId=${companyId}`;
+  iframe.src =
+    `${BASE_URL}/embed?companyId=${companyId}`;
 
   Object.assign(iframe.style, {
     position: "fixed",
-    bottom: "90px",
     width: "380px",
-    height: "620px",
+    height: "650px",
+    bottom: "90px",
     border: "none",
     borderRadius: "20px",
-    background: "transparent",
-    overflow: "hidden",
-    boxShadow: "0 10px 35px rgba(0,0,0,.30)",
-    zIndex: "999999",
+    background: "#fff",
+    boxShadow: "0 10px 40px rgba(0,0,0,.25)",
     opacity: "0",
     visibility: "hidden",
     transform: "translateY(20px)",
-    transition: "all .25s ease",
+    transition: ".25s",
+    zIndex: "999999"
   });
 
   if (position === "left") {
@@ -76,15 +74,19 @@
 
   let opened = false;
 
-  button.addEventListener("click", () => {
+  button.onclick = () => {
+
     opened = !opened;
 
     if (opened) {
+
       iframe.style.visibility = "visible";
       iframe.style.opacity = "1";
       iframe.style.transform = "translateY(0)";
       button.innerHTML = "✕";
+
     } else {
+
       iframe.style.opacity = "0";
       iframe.style.transform = "translateY(20px)";
 
@@ -93,6 +95,9 @@
       }, 250);
 
       button.innerHTML = "💬";
+
     }
-  });
+
+  };
+
 })();
