@@ -4,97 +4,149 @@
 
   const script = document.currentScript;
 
+  // ==========================
+  // CONFIG
+  // ==========================
+
+  const BASE_URL = "https://chatbot-frontend-nine-psi.vercel.app";
+
   const companyId =
     script.getAttribute("data-company-id") || "nuform-social";
 
   const position =
     script.getAttribute("data-position") || "right";
 
-  const BASE_URL = "https://chatbot-frontend-nine-psi.vercel.app";
+  const bottom =
+    script.getAttribute("data-bottom") || "20";
+
+  const side =
+    script.getAttribute("data-side") || "20";
+
+  // ==========================
+  // COMPANY LOGO
+  // ==========================
+
+  let logo = BASE_URL + "/logo.png";
+
+  if (companyId === "oya-gemkara") {
+    logo = BASE_URL + "/oya-logo.png";
+  }
+
+  // ==========================
+  // CHAT BUTTON
+  // ==========================
 
   const button = document.createElement("div");
 
   Object.assign(button.style, {
     position: "fixed",
-    width: "60px",
-    height: "60px",
+    width: "64px",
+    height: "64px",
     borderRadius: "50%",
-    background: "#067647",
-    color: "#fff",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    fontSize: "30px",
+    overflow: "hidden",
     cursor: "pointer",
-    bottom: "20px",
-    zIndex: "999999",
-    boxShadow: "0 10px 25px rgba(0,0,0,.25)",
-    transition: ".3s",
-    userSelect: "none"
+    background: "white",
+    boxShadow: "0 8px 30px rgba(0,0,0,.25)",
+    transition: "all .25s ease",
+    zIndex: "999999999",
+    userSelect: "none",
+    bottom: bottom + "px"
   });
 
-  button.innerHTML = "💬";
-
   if (position === "left") {
-    button.style.left = "20px";
+    button.style.left = side + "px";
   } else {
-    button.style.right = "20px";
+    button.style.right = side + "px";
   }
+
+  const img = document.createElement("img");
+
+  img.src = logo;
+
+  Object.assign(img.style, {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block"
+  });
+
+  button.appendChild(img);
 
   document.body.appendChild(button);
 
+  // ==========================
+  // CHAT WINDOW
+  // ==========================
+
   const iframe = document.createElement("iframe");
 
-  iframe.src =
-    `${BASE_URL}/embed?companyId=${companyId}`;
+  iframe.setAttribute(
+    "allow",
+    "clipboard-write; microphone"
+  );
 
   Object.assign(iframe.style, {
     position: "fixed",
-    width: "380px",
-    height: "650px",
-    bottom: "90px",
+    width: "390px",
+    maxWidth: "calc(100vw - 20px)",
+    height: "700px",
+    maxHeight: "calc(100vh - 100px)",
     border: "none",
+    outline: "none",
+    background: "transparent",
+    overflow: "hidden",
     borderRadius: "20px",
-    background: "#fff",
-    boxShadow: "0 10px 40px rgba(0,0,0,.25)",
+    zIndex: "999999999",
     opacity: "0",
     visibility: "hidden",
-    transform: "translateY(20px)",
-    transition: ".25s",
-    zIndex: "999999"
+    transform: "translateY(25px)",
+    transition: "all .25s ease",
+    bottom: Number(bottom) + 75 + "px"
   });
 
   if (position === "left") {
-    iframe.style.left = "20px";
+    iframe.style.left = side + "px";
   } else {
-    iframe.style.right = "20px";
+    iframe.style.right = side + "px";
   }
 
   document.body.appendChild(iframe);
 
+  // ==========================
+  // OPEN / CLOSE
+  // ==========================
+
   let opened = false;
+  let loaded = false;
 
   button.onclick = () => {
 
     opened = !opened;
+
+    if (!loaded) {
+      iframe.src =
+        `${BASE_URL}/embed?companyId=${companyId}`;
+      loaded = true;
+    }
 
     if (opened) {
 
       iframe.style.visibility = "visible";
       iframe.style.opacity = "1";
       iframe.style.transform = "translateY(0)";
-      button.innerHTML = "✕";
+
+      button.style.transform = "scale(.95)";
 
     } else {
 
       iframe.style.opacity = "0";
-      iframe.style.transform = "translateY(20px)";
+      iframe.style.transform = "translateY(25px)";
+
+      button.style.transform = "scale(1)";
 
       setTimeout(() => {
         iframe.style.visibility = "hidden";
       }, 250);
-
-      button.innerHTML = "💬";
 
     }
 
