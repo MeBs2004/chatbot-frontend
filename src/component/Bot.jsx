@@ -15,7 +15,7 @@ import {
   FaPhoneAlt,
 } from "react-icons/fa";
 
-function Bot() {
+function Bot({ embed = false }) {
   const [emailAsked, setEmailAsked] = useState(false);
 
   const [userEmail, setUserEmail] = useState("");
@@ -335,31 +335,26 @@ function Bot() {
       )}
 
       {/* Chatbot */}
-      {openBot && (
+      {(openBot || embed) && (
         <div
           className={`
-            fixed
-            bottom-5
-            right-5
-            w-[365px]
-            h-[547px]
-            bg-[#f7f7f7]
-            rounded-[28px]
-            overflow-hidden
-            flex
-            flex-col
-            z-50
-            border
-            border-[#dcdcdc]
-            -m-3
-            transition-all
-            duration-500
-            ${
-              animateBot
-                ? "opacity-100 translate-y-0 scale-100"
-                : "opacity-0 translate-y-10 scale-95"
-            }
-          `}
+    ${embed ? "w-full h-full" : "fixed bottom-5 right-5 w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"}
+
+    bg-[#f7f7f7]
+    overflow-hidden
+    flex
+    flex-col
+    z-50
+    transition-all
+    duration-500
+    ${
+      embed
+        ? ""
+        : animateBot
+          ? "opacity-100 translate-y-0 scale-100"
+          : "opacity-0 translate-y-10 scale-95"
+    }
+  `}
         >
           {/* Header */}
           <div

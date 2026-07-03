@@ -9,9 +9,22 @@ export default function Embed() {
 
   const companyId = searchParams.get("companyId");
 
-  if (companyId === "oya-gemkara") {
-    return <OyaBot />;
-  }
-
-  return <Bot />;
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        margin: 0,
+        padding: 0,
+        overflow: "hidden",
+        background: "transparent",
+      }}
+    >
+      {companyId === "oya-gemkara" ? (
+        <OyaBot embed={true} />
+      ) : (
+        <Bot embed={true} />
+      )}
+    </div>
+  );
 }

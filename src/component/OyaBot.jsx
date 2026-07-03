@@ -234,7 +234,7 @@ function buildMarkdownComponents(sender) {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-function OyaBot() {
+function OyaBot({ embed = false }) {
   const COMPANY_ID = window.NUFORMLY_CONFIG?.companyId || "oya-gemkara";
 
   const [company, setCompany] = useState(null);
@@ -628,29 +628,36 @@ function OyaBot() {
       )}
 
       {/* ════════════ Chat Panel ════════════ */}
-      {openBot && (
+      {(openBot || embed) && (
         <div
           role="dialog"
           aria-label="OYA Jewellery Assistant Chat"
           aria-modal="true"
           style={{ background: theme.backgroundColor }}
           className={`
-            bot-panel
-            fixed bottom-5 right-5
-            w-[365px] h-[547px]
-            rounded-[28px]
-            overflow-hidden
-            flex flex-col
-            z-50
-            border border-[#dcdcdc]
-            -m-3
-            transition-all duration-500
-            ${
-              animateBot
-                ? "opacity-100 translate-y-0 scale-100 bot-enter"
-                : "opacity-0 translate-y-10 scale-95 pointer-events-none"
-            }
-          `}
+    bot-panel
+
+    ${
+      embed
+        ? "w-full h-full"
+        : "fixed bottom-5 right-5 w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"
+    }
+
+    overflow-hidden
+    flex
+    flex-col
+    z-50
+    transition-all
+    duration-500
+
+    ${
+      embed
+        ? ""
+        : animateBot
+          ? "opacity-100 translate-y-0 scale-100 bot-enter"
+          : "opacity-0 translate-y-10 scale-95 pointer-events-none"
+    }
+  `}
         >
           {/* Offline Banner */}
           {!isOnline && (
