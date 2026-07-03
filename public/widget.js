@@ -77,8 +77,9 @@
 
   Object.assign(iframe.style, {
     position: "fixed",
-    width: "365px",
-    height: "547px",
+    width: "425px",
+    height: "640px",
+    borderRadius: "28px",
     border: "none",
     background: "transparent",
     overflow: "hidden",

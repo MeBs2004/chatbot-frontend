@@ -338,7 +338,7 @@ function Bot({ embed = false }) {
       {(openBot || embed) && (
         <div
           className={`
-    ${embed ? "w-full h-full" : "fixed bottom-5 right-5 w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"}
+    ${embed ? "w-full h-full" : "fixed bottom-5 right-5  w-[365px]h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"}
 
     bg-[#f7f7f7]
     overflow-hidden
