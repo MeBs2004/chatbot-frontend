@@ -1185,9 +1185,9 @@ function OyaBot({ embed = false }) {
               Powered by
               <span style={{ color: OYA_DARK }} className="font-semibold">
                 {" "}
-                OYA by Gemkara
+                Nuform Social
               </span>
-              &nbsp;&nbsp;oyabygemkara.com
+              &nbsp;&nbsp;nuformsocial.com
             </div>
           </footer>
         </div>
