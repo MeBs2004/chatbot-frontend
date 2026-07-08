@@ -246,7 +246,7 @@ function OyaBot({ embed = false }) {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [openBot, setOpenBot] = useState(true);
+  const [openBot, setOpenBot] = useState(embed ? true : false);
   const [animateBot, setAnimateBot] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -587,7 +587,7 @@ function OyaBot({ embed = false }) {
       <style>{GLOBAL_STYLES}</style>
 
       {/* ════════════ Floating Button ════════════ */}
-      {!openBot && (
+      {!embed && !openBot && (
         <div className="fab-wrap fixed bottom-5 right-5 z-50">
           <button
             onClick={handleOpenBot}
@@ -628,7 +628,7 @@ function OyaBot({ embed = false }) {
       )}
 
       {/* ════════════ Chat Panel ════════════ */}
-      {(openBot || embed) && (
+      {openBot && (
         <div
           role="dialog"
           aria-label="OYA Jewellery Assistant Chat"
@@ -748,28 +748,42 @@ function OyaBot({ embed = false }) {
                 onChange={(e) => setLanguage(e.target.value)}
                 aria-label="Select language"
                 className="
-                  oya-ctrl lang-select
-                  bg-[#ffffff22]
-                  text-white text-[10px]
-                  px-1 py-1
-                  rounded-[8px]
-                  outline-none border-none cursor-pointer
-                "
+    oya-ctrl lang-select
+    bg-[#ffffff22]
+    text-white text-[10px]
+    px-1 py-1
+    rounded-[8px]
+    outline-none border-none cursor-pointer
+  "
               >
                 <option value="English">EN</option>
                 <option value="Hindi">हिं</option>
               </select>
 
               <button
-                onClick={() => setOpenBot(false)}
+                onClick={() => {
+                  if (embed) {
+                    window.parent.postMessage(
+                      {
+                        type: "NUFORMLY_CLOSE",
+                      },
+                      "*",
+                    );
+                  } else {
+                    setOpenBot(false);
+                  }
+                }}
                 aria-label="Close chat"
                 className="
-                  oya-ctrl
-                  w-[20px] h-[20px]
-                  rounded-full
-                  bg-[#ffffff22]
-                  flex items-center justify-center
-                "
+    oya-ctrl
+    w-[20px]
+    h-[20px]
+    rounded-full
+    bg-[#ffffff22]
+    flex
+    items-center
+    justify-center
+  "
               >
                 <FaTimes size={13} />
               </button>

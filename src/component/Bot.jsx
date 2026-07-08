@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import logo from "../assets/logo.png";
+import logo1 from "../assets/logo1.png";
 
 import {
   FaTimes,
@@ -32,7 +33,7 @@ function Bot({ embed = false }) {
 
   const [showSuggestions, setShowSuggestions] = useState(true);
 
-  const [openBot, setOpenBot] = useState(true);
+  const [openBot, setOpenBot] = useState(embed ? true : false);
 
   const [animateBot, setAnimateBot] = useState(false);
 
@@ -55,12 +56,14 @@ function Bot({ embed = false }) {
 
   // Popup Animation
   useEffect(() => {
+    if (embed) return;
+
     const timer = setTimeout(() => {
       setAnimateBot(true);
     }, 200);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [embed]);
 
   // Load Chat History
   useEffect(() => {
@@ -299,18 +302,16 @@ function Bot({ embed = false }) {
   return (
     <>
       {/* Floating Button */}
-      {!openBot && (
+      {!embed && !openBot && (
         <button
           onClick={() => setOpenBot(true)}
           className="
             fixed
             bottom-5
             right-5
-            w-[60px]
-            h-[60px]
+            w-[75px]
+            h-[75px]
             rounded-full
-            bg-[#067647]
-            shadow-2xl
             flex
             items-center
             justify-center
@@ -322,13 +323,13 @@ function Bot({ embed = false }) {
           "
         >
           <img
-            src={logo}
+            src={logo1}
             alt="Logo"
             className="
-              w-[34px]
-              h-[34px]
-              object-cover
-              rounded-full
+              w-[55px]
+              h-[55px]
+              object-contain
+            
             "
           />
         </button>
@@ -338,7 +339,7 @@ function Bot({ embed = false }) {
       {(openBot || embed) && (
         <div
           className={`
-    ${embed ? "w-full h-full" : "fixed bottom-5 right-5  w-[365px]h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"}
+    ${embed ? "w-full h-full" : "fixed bottom-5 right-5  w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"}
 
     bg-[#f7f7f7]
     overflow-hidden
@@ -388,8 +389,8 @@ function Bot({ embed = false }) {
                   src={logo}
                   alt="Logo"
                   className="
-                    w-[32px]
-                    h-[32px]
+                    w-[35px]
+                    h-[35px]
                     object-cover
                     rounded-[8px]
                   "
@@ -465,16 +466,29 @@ function Bot({ embed = false }) {
 
               {/* Close */}
               <button
-                onClick={() => setOpenBot(false)}
+                onClick={() => {
+                  if (embed) {
+                    // Tell widget.js to close the iframe
+                    window.parent.postMessage(
+                      {
+                        type: "NUFORMLY_CLOSE",
+                      },
+                      "*",
+                    );
+                  } else {
+                    // Normal React app
+                    setOpenBot(false);
+                  }
+                }}
                 className="
-                  w-[20px]
-                  h-[20px]
-                  rounded-full
-                  bg-[#ffffff22]
-                  flex
-                  items-center
-                  justify-center
-                "
+    w-[20px]
+    h-[20px]
+    rounded-full
+    bg-[#ffffff22]
+    flex
+    items-center
+    justify-center
+  "
               >
                 <FaTimes size={13} />
               </button>
