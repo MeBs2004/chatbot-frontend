@@ -339,23 +339,27 @@ function Bot({ embed = false }) {
       {(openBot || embed) && (
         <div
           className={`
-    ${embed ? "w-full h-full" : "fixed bottom-5 right-5  w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"}
+      ${
+        embed
+          ? "w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc]"
+          : "fixed bottom-5 right-5 w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"
+      }
 
-    bg-[#f7f7f7]
-    overflow-hidden
-    flex
-    flex-col
-    z-50
-    transition-all
-    duration-500
-    ${
-      embed
-        ? ""
-        : animateBot
-          ? "opacity-100 translate-y-0 scale-100"
-          : "opacity-0 translate-y-10 scale-95"
-    }
-  `}
+      bg-[#f7f7f7]
+      overflow-hidden
+      flex
+      flex-col
+      z-50
+      transition-all
+      duration-500
+      ${
+        embed
+          ? ""
+          : animateBot
+            ? "opacity-100 translate-y-0 scale-100"
+            : "opacity-0 translate-y-10 scale-95"
+      }
+    `}
         >
           {/* Header */}
           <div

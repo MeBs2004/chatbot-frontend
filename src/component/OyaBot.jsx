@@ -639,25 +639,25 @@ function OyaBot({ embed = false }) {
 
     ${
       embed
-        ? "w-full h-full"
+        ? "w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc]"
         : "fixed bottom-5 right-5 w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"
     }
 
-    overflow-hidden
-    flex
-    flex-col
-    z-50
-    transition-all
-    duration-500
+overflow-hidden
+flex
+flex-col
+z-50
+transition-all
+duration-500
 
-    ${
-      embed
-        ? ""
-        : animateBot
-          ? "opacity-100 translate-y-0 scale-100 bot-enter"
-          : "opacity-0 translate-y-10 scale-95 pointer-events-none"
-    }
-  `}
+${
+  embed
+    ? ""
+    : animateBot
+      ? "opacity-100 translate-y-0 scale-100 bot-enter"
+      : "opacity-0 translate-y-10 scale-95 pointer-events-none"
+}
+`}
         >
           {/* Offline Banner */}
           {!isOnline && (
@@ -665,11 +665,15 @@ function OyaBot({ embed = false }) {
               role="alert"
               aria-live="assertive"
               className="
-                shrink-0
-                bg-red-500/90 text-white
-                text-[11.5px] font-semibold
-                text-center py-[7px] px-4
-              "
+        shrink-0
+        bg-red-500/90
+        text-white
+        text-[11.5px]
+        font-semibold
+        text-center
+        py-[7px]
+        px-4
+      "
             >
               No internet connection — messages won't send.
             </div>

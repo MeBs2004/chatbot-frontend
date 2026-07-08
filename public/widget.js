@@ -12,13 +12,9 @@
   const position =
     script.getAttribute("data-position") || "right";
 
-  const bottom = Number(
-    script.getAttribute("data-bottom") || 20
-  );
+  const bottom = Number(script.getAttribute("data-bottom") || 20);
 
-  const side = Number(
-    script.getAttribute("data-side") || 20
-  );
+  const side = Number(script.getAttribute("data-side") || 20);
 
   let logo = BASE_URL + "/logo.png";
 
@@ -41,7 +37,7 @@
     overflow: "hidden",
     cursor: "pointer",
     boxShadow: "0 10px 30px rgba(0,0,0,.25)",
-    transition: ".25s",
+    transition: ".25s ease",
     zIndex: "999999999",
     userSelect: "none",
   });
@@ -97,6 +93,7 @@
     iframe.style.right = side + "px";
   }
 
+  // Mobile Fullscreen
   if (window.innerWidth <= 480) {
     iframe.style.width = "100vw";
     iframe.style.height = "100dvh";
@@ -116,9 +113,7 @@
   // ==========================================
 
   function openChat() {
-
     if (!loaded) {
-
       iframe.src =
         BASE_URL +
         "/embed?companyId=" +
@@ -139,20 +134,16 @@
   // ==========================================
 
   function closeChat() {
-
     opened = false;
 
     iframe.style.opacity = "0";
     iframe.style.transform = "translateY(25px)";
 
     setTimeout(function () {
-
       if (!opened) {
         iframe.style.visibility = "hidden";
       }
-
     }, 250);
-
   }
 
   // ==========================================
@@ -160,13 +151,11 @@
   // ==========================================
 
   button.onclick = function () {
-
     if (opened) {
       closeChat();
     } else {
       openChat();
     }
-
   };
 
   // ==========================================
@@ -174,13 +163,10 @@
   // ==========================================
 
   window.addEventListener("message", function (event) {
-
     if (!event.data) return;
 
     if (event.data.type === "NUFORMLY_CLOSE") {
       closeChat();
     }
-
   });
-
 })();

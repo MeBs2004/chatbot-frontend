@@ -7,8 +7,7 @@ import OyaBot from "../component/OyaBot";
 export default function Embed() {
   const [searchParams] = useSearchParams();
 
-  const companyId =
-    searchParams.get("companyId") || "nuform-social";
+  const companyId = searchParams.get("companyId") || "nuform-social";
 
   useEffect(() => {
     window.NUFORMLY_CONFIG = {
@@ -29,12 +28,16 @@ export default function Embed() {
         padding: 0,
         overflow: "hidden",
         background: "transparent",
+
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
       }}
     >
       {companyId === "oya-gemkara" ? (
-        <OyaBot embed />
+        <OyaBot embed={true} />
       ) : (
-        <Bot embed />
+        <Bot embed={true} />
       )}
     </div>
   );
