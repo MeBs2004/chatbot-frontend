@@ -341,7 +341,7 @@ function Bot({ embed = false }) {
           className={`
       ${
         embed
-          ? "w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc]"
+          ? "w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"
           : "fixed bottom-5 right-5 w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc]"
       }
 
