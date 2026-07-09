@@ -102,7 +102,6 @@
     iframe.style.bottom = "0";
     iframe.style.borderRadius = "0";
   }
-
   document.body.appendChild(iframe);
 
   let loaded = false;
