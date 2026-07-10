@@ -28,22 +28,13 @@ export default function Embed() {
         padding: 0,
         overflow: "hidden",
         background: "transparent",
-        position: "relative",
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          right: 0,
-          bottom: 0,
-        }}
-      >
-        {companyId === "oya-gemkara" ? (
-          <OyaBot embed={true} />
-        ) : (
-          <Bot embed={true} />
-        )}
-      </div>
+      {companyId === "oya-gemkara" ? (
+        <OyaBot embed={true} />
+      ) : (
+        <Bot embed={true} />
+      )}
     </div>
   );
 }

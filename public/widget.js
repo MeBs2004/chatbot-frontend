@@ -73,8 +73,8 @@
 
   Object.assign(iframe.style, {
     position: "fixed",
-    width: "425px",
-    height: "640px",
+    width: "365px",
+    height: "547px",
     border: "none",
     borderRadius: "28px",
     background: "transparent",
@@ -93,15 +93,21 @@
     iframe.style.right = side + "px";
   }
 
+  // ==========================================
   // Mobile Fullscreen
+  // ==========================================
+
   if (window.innerWidth <= 480) {
-    iframe.style.width = "100vw";
-    iframe.style.height = "100dvh";
-    iframe.style.left = "0";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.borderRadius = "0";
+    Object.assign(iframe.style, {
+      width: "100vw",
+      height: "100dvh",
+      left: "0",
+      right: "0",
+      bottom: "0",
+      borderRadius: "0",
+    });
   }
+
   document.body.appendChild(iframe);
 
   let loaded = false;
@@ -138,7 +144,7 @@
     iframe.style.opacity = "0";
     iframe.style.transform = "translateY(25px)";
 
-    setTimeout(function () {
+    setTimeout(() => {
       if (!opened) {
         iframe.style.visibility = "hidden";
       }
@@ -149,19 +155,15 @@
   // Launcher Click
   // ==========================================
 
-  button.onclick = function () {
-    if (opened) {
-      closeChat();
-    } else {
-      openChat();
-    }
+  button.onclick = () => {
+    opened ? closeChat() : openChat();
   };
 
   // ==========================================
   // Listen from React
   // ==========================================
 
-  window.addEventListener("message", function (event) {
+  window.addEventListener("message", (event) => {
     if (!event.data) return;
 
     if (event.data.type === "NUFORMLY_CLOSE") {
