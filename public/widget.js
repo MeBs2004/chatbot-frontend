@@ -16,11 +16,16 @@
 
   const side = Number(script.getAttribute("data-side") || 20);
 
-  let logo = BASE_URL + "/logo.png";
+  const isOya = companyId === "oya-gemkara";
 
-  if (companyId === "oya-gemkara") {
-    logo = BASE_URL + "/oya-logo.png";
-  }
+  // Matches each company's real launcher button exactly
+  // (Bot.jsx uses logo1.png, transparent bg, object-contain, 75/55px)
+  // (OyaBot.jsx uses oya-logo.png, #5E0F28 bg, object-cover, 60/35px)
+  const logo = isOya ? BASE_URL + "/oya-logo.png" : BASE_URL + "/logo1.png";
+
+  const buttonSize = isOya ? 60 : 75;
+
+  const imgSize = isOya ? 35 : 55;
 
   // ==========================================
   // Launcher Button
@@ -30,11 +35,15 @@
 
   Object.assign(button.style, {
     position: "fixed",
-    width: "60px",
-    height: "60px",
+    width: buttonSize + "px",
+    height: buttonSize + "px",
     bottom: bottom + "px",
     borderRadius: "50%",
     overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: isOya ? "#5E0F28" : "transparent",
     cursor: "pointer",
     boxShadow: "0 10px 30px rgba(0,0,0,.25)",
     transition: ".25s ease",
@@ -53,9 +62,10 @@
   img.src = logo;
 
   Object.assign(img.style, {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
+    width: imgSize + "px",
+    height: imgSize + "px",
+    objectFit: isOya ? "cover" : "contain",
+    borderRadius: isOya ? "50%" : "0",
     display: "block",
   });
 
