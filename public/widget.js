@@ -27,6 +27,18 @@
 
   const imgSize = isOya ? 35 : 55;
 
+  // Runs the mount logic once <body> exists.
+  // Handles scripts placed in <head> (e.g. WordPress/Wix/Squarespace
+  // "header" injection), where document.body is still null at parse time.
+  function whenBodyReady(fn) {
+    if (document.body) {
+      fn();
+    } else {
+      document.addEventListener("DOMContentLoaded", fn);
+    }
+  }
+
+  whenBodyReady(function () {
   // ==========================================
   // Launcher Button
   // ==========================================
@@ -179,5 +191,6 @@
     if (event.data.type === "NUFORMLY_CLOSE") {
       closeChat();
     }
+  });
   });
 })();
