@@ -74,8 +74,8 @@
   img.src = logo;
 
   Object.assign(img.style, {
-    width: imgSize + "70px",
-    height: imgSize + "70px",
+    width: imgSize + "px",
+    height: imgSize + "px",
     objectFit: isOya ? "cover" : "contain",
     borderRadius: isOya ? "50%" : "0",
     display: "block",
