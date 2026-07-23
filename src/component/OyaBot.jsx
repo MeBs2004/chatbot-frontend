@@ -9,6 +9,7 @@ import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import logo from "../assets/oya-logo.png";
+import logo1 from "../assets/oya-logo1.png";
 import {
   FaTimes,
   FaPaperPlane,
@@ -607,7 +608,7 @@ function OyaBot({ embed = false }) {
             <img
               src={logo}
               alt="OYA by Gemkara"
-              className="w-[35px] h-[35px] object-cover rounded-full"
+              className="w-[70px] h-[70px] object-cover rounded-full"
             />
           </button>
 
@@ -705,7 +706,7 @@ ${
                 "
               >
                 <img
-                  src={logo}
+                  src={logo1}
                   alt="OYA logo"
                   className="w-[34px] h-[38px] object-cover rounded-[8px]"
                 />
