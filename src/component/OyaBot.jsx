@@ -13,6 +13,7 @@ import logo1 from "../assets/oya-logo1.png";
 import {
   FaTimes,
   FaPaperPlane,
+  FaPaperclip,
   FaTrash,
   FaWhatsapp,
   FaEnvelope,
@@ -83,21 +84,28 @@ const GLOBAL_STYLES = `
     outline-offset: 2px;
   }
 
-  .lang-select option { background: #ffffff; color: #1e293b; font-weight: 500; }
+  .lang-select option {
+    background: #ffffff;
+    color: #1e293b;
+    font-weight: 500;
+  }
 
   @media (max-width: 480px) {
     .bot-panel {
-      bottom:        0 !important;
-      right:         0 !important;
-      width:         100vw  !important;
-      max-width:     100vw  !important;
-      height:        100dvh !important;
+      bottom: 0 !important;
+      right: 0 !important;
+      width: 100vw !important;
+      max-width: 100vw !important;
+      height: 100dvh !important;
       border-radius: 0 !important;
     }
-    .fab-wrap { bottom: 20px !important; right: 16px !important; }
+
+    .fab-wrap {
+      bottom: 20px !important;
+      right: 16px !important;
+    }
   }
 `;
-
 // ── CodeBlock ────────────────────────────────────────────────────────────────
 function CodeBlock({ className, children, sender }) {
   const [copied, setCopied] = useState(false);
@@ -244,6 +252,7 @@ function OyaBot({ embed = false }) {
   const [language, setLanguage] = useState("English");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -256,6 +265,7 @@ function OyaBot({ embed = false }) {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const chatAreaRef = useRef(null);
+  const fileInputRef = useRef(null);
   const mountedRef = useRef(true);
   const userScrolledUpRef = useRef(false);
   const openBotTimerRef = useRef(null);
@@ -431,10 +441,25 @@ function OyaBot({ embed = false }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
 
+  const handleFileChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+  }, []);
+
+  const removeSelectedFile = useCallback(() => {
+    setSelectedFile(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, []);
+
   const handleSendMessage = useCallback(
     async (customMessage = null) => {
       const messageText = (customMessage || input).trim();
-      if (!messageText || loading || !isOnline) return;
+      if ((!messageText && !selectedFile) || loading || !isOnline) return;
 
       setFailedMessage(null);
 
@@ -482,15 +507,22 @@ function OyaBot({ embed = false }) {
       userScrolledUpRef.current = false;
 
       try {
-        const res = await axios.post(
-          `${BACKEND_URL}bot/v1/message`,
-          {
-            text: messageText,
-            language,
-            visitorId: localStorage.getItem("visitorId"),
+        const formData = new FormData();
+
+        formData.append("text", messageText);
+        formData.append("language", language);
+        formData.append("visitorId", localStorage.getItem("visitorId"));
+
+        if (selectedFile) {
+          formData.append("file", selectedFile);
+        }
+
+        const res = await axios.post(`${BACKEND_URL}bot/v1/message`, formData, {
+          headers: {
+            "x-company-id": COMPANY_ID,
+            "Content-Type": "multipart/form-data",
           },
-          { headers: { "x-company-id": COMPANY_ID } },
-        );
+        });
 
         if (!mountedRef.current) return;
 
@@ -534,6 +566,11 @@ function OyaBot({ embed = false }) {
         setFailedMessage(messageText);
       } finally {
         if (mountedRef.current) {
+          setSelectedFile(null);
+
+          if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+          }
           setLoading(false);
           requestAnimationFrame(() => inputRef.current?.focus());
         }
@@ -1123,22 +1160,49 @@ ${
           <footer
             aria-label="Message input area"
             className="
-              bot-footer
-              shrink-0
-              bg-white
-              border-t border-[#e8e8e8]
-              px-4 py-4
-            "
+    bot-footer
+    shrink-0
+    bg-white
+    border-t border-[#e8e8e8]
+    px-4 py-4
+  "
           >
+            {selectedFile && (
+              <div className="mb-2 flex items-center justify-between bg-gray-100 rounded-lg px-3 py-2 text-sm">
+                <span className="truncate">📎 {selectedFile.name}</span>
+
+                <button
+                  onClick={removeSelectedFile}
+                  className="text-red-500 ml-2"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <div
               className="
-                flex items-center
-                border-2 rounded-[18px]
-                px-2 py-1
-                bg-white
-              "
+      flex items-center
+      border-2 rounded-[18px]
+      px-2 py-1
+      bg-white
+    "
               style={{ borderColor: OYA_DARK }}
             >
+              <input
+                ref={fileInputRef}
+                type="file"
+                hidden
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                onChange={handleFileChange}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="mr-2 text-gray-500 hover:text-[#5E0F28]"
+              >
+                <FaPaperclip size={16} />
+              </button>
               <input
                 ref={inputRef}
                 disabled={loading || !isOnline}
