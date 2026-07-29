@@ -7,6 +7,8 @@ import remarkGfm from "remark-gfm";
 import logo from "../assets/logo.png";
 import logo1 from "../assets/logo1.png";
 
+import useSpeechRecognition from "../hooks/useSpeechRecognition";
+
 import {
   FaTimes,
   FaPaperPlane,
@@ -25,6 +27,8 @@ import {
   FaFileAudio,
   FaFileImage,
   FaFileVideo,
+  FaMicrophone,
+  FaMicrophoneSlash,
 } from "react-icons/fa";
 
 function Bot({ embed = false }) {
@@ -44,6 +48,8 @@ function Bot({ embed = false }) {
 
   const [loading, setLoading] = useState(false);
 
+  const [showRecordingBubble, setShowRecordingBubble] = useState(false);
+
   const [suggestions, setSuggestions] = useState([]);
 
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -59,12 +65,52 @@ function Bot({ embed = false }) {
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+  const {
+    transcript,
+    listening,
+    supported,
+    startListening,
+    stopListening,
+    setTranscript,
+  } = useSpeechRecognition(language === "Hindi" ? "hi-IN" : "en-US");
+
   const axiosConfig = {
     headers: {
       "x-company-id": "nuform-social",
     },
   };
 
+  // Live transcript -> input
+  useEffect(() => {
+    setInput(transcript);
+  }, [transcript]);
+
+  // Hide recording bubble when recording stops
+  useEffect(() => {
+    if (!listening) {
+      setShowRecordingBubble(false);
+    }
+  }, [listening]);
+
+  // Update input while speaking
+  useEffect(() => {
+    setInput(transcript);
+  }, [transcript]);
+
+  // Prevent recording while bot is replying
+  const handleMicClick = () => {
+    if (loading) return;
+
+    if (listening) {
+      stopListening();
+      setShowRecordingBubble(false);
+    } else {
+      setTranscript("");
+      setInput("");
+      setShowRecordingBubble(true);
+      startListening();
+    }
+  };
   // Auto Scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -202,6 +248,7 @@ function Bot({ embed = false }) {
 
   // Send Message
   const handleSendMessage = async (customMessage = null) => {
+    console.log("SEND FUNCTION CALLED");
     const messageText = customMessage || input;
 
     // Prevent empty send
@@ -285,22 +332,39 @@ function Bot({ embed = false }) {
     setShowSuggestions(false);
 
     try {
+      let res;
+
       const formData = new FormData();
 
       formData.append("text", messageText);
       formData.append("language", language);
       formData.append("visitorId", localStorage.getItem("visitorId"));
-
       if (selectedFile) {
         formData.append("file", selectedFile);
       }
 
-      const res = await axios.post(`${BACKEND_URL}bot/v1/message`, formData, {
-        headers: {
-          "x-company-id": "nuform-social",
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      console.log("BACKEND_URL:", BACKEND_URL);
+      console.log("API:", `${BACKEND_URL}bot/v1/message`);
+
+      try {
+        console.log("Sending request...");
+
+        res = await axios.post(`${BACKEND_URL}bot/v1/message`, formData, {
+          headers: {
+            "x-company-id": "nuform-social",
+          },
+        });
+
+        console.log("FULL API Response:");
+        console.log(res.data);
+        console.log("Bot Message:", res.data.botMessage);
+        console.log("Success:", res.data.success);
+      } catch (err) {
+        console.log("FULL ERROR");
+        console.log(err);
+        console.log(err.response);
+        console.log(err.response?.data);
+      }
 
       if (res.data.success) {
         const botMessage = {
@@ -329,6 +393,8 @@ function Bot({ embed = false }) {
       }
     } catch (error) {
       console.log("Message Error:", error);
+      console.log("Error Response:", error.response);
+      console.log("Error Data:", error.response?.data);
 
       setMessages((prev) => [
         ...prev,
@@ -953,6 +1019,37 @@ function Bot({ embed = false }) {
               </div>
             )}
 
+            {showRecordingBubble && (
+              <div className="flex justify-end mb-4">
+                <div
+                  className="
+        bg-[#067647]
+        text-white
+        rounded-[18px]
+        rounded-br-[6px]
+        px-4
+        py-3
+        w-[170px]
+      "
+                >
+                  <div className="flex items-center justify-center gap-[3px] h-[34px]">
+                    {[...Array(22)].map((_, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full bg-white animate-pulse"
+                        style={{
+                          width: "3px",
+                          height: `${12 + Math.sin(i) * 10 + (i % 5) * 3}px`,
+                          animationDelay: `${i * 0.05}s`,
+                          animationDuration: "0.8s",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
 
@@ -1016,6 +1113,7 @@ function Bot({ embed = false }) {
             {/* Input Box */}
             <div
               className="
+      relative
       flex
       items-center
       border-2
@@ -1028,6 +1126,7 @@ function Bot({ embed = false }) {
             >
               {/* Hidden File Input */}
               <input
+                disabled={listening}
                 type="file"
                 ref={fileInputRef}
                 style={{ display: "none" }}
@@ -1065,41 +1164,92 @@ function Bot({ embed = false }) {
                 <FaPlus size={18} />
               </button>
 
+              {/* Voice Wave */}
+              {listening && (
+                <div className="absolute left-[58px] right-[60px] flex items-center justify-center gap-[3px] pointer-events-none">
+                  {[...Array(18)].map((_, i) => (
+                    <span
+                      key={i}
+                      className="w-[3px] rounded-full bg-[#067647] animate-pulse"
+                      style={{
+                        height: `${10 + (i % 6) * 5}px`,
+                        animationDelay: `${i * 0.08}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
               {/* Text Input */}
               <input
                 type="text"
-                placeholder="Ask me anything about our services..."
+                placeholder={
+                  listening ? "Listening..." : "Ask About Our Services..."
+                }
                 className="
         flex-1
         outline-none
-        text-[13px]
+        text-[14px]
         text-[#333]
         opacity-90
         placeholder:text-[#9aa5a0]
       "
                 value={input}
+                readOnly={listening}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyPress}
               />
 
+              {/* Mic Button */}
+              <button
+                onClick={handleMicClick}
+                disabled={!supported || loading}
+                className={`
+    mr-2
+    w-[35px]
+    h-[35px]
+    rounded-full
+    flex
+    items-center
+    justify-center
+    transition-all
+    duration-300
+    ${
+      listening
+        ? "bg-red-500 text-white"
+        : "bg-gray-100 text-[#067647] hover:bg-[#067647] hover:text-white"
+    }
+    ${loading ? "opacity-50 cursor-not-allowed" : ""}
+  `}
+              >
+                {listening ? (
+                  <FaMicrophoneSlash size={15} />
+                ) : (
+                  <FaMicrophone size={15} />
+                )}
+              </button>
+
               {/* Send Button */}
               <button
-                onClick={() => handleSendMessage()}
-                className="
-        w-[35px]
-        h-[35px]
-        rounded-[12px]
-        bg-[#067647]
-        flex
-        items-center
-        justify-center
-        text-white
-        hover:scale-105
-        transition-all
-        duration-200
-      "
+                onClick={handleSendMessage}
+                disabled={loading || (!input.trim() && !selectedFile)}
+                className={`
+    w-[35px]
+    h-[35px]
+    rounded-full
+    flex
+    items-center
+    justify-center
+    transition-all
+    duration-300
+    ${
+      input.trim() || selectedFile
+        ? "bg-[#067647] text-white hover:scale-105"
+        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+    }
+  `}
               >
-                <FaPaperPlane size={14} />
+                <FaPaperPlane size={15} />
               </button>
             </div>
 
