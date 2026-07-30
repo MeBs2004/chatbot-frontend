@@ -60,6 +60,8 @@ function Bot({ embed = false }) {
 
   const messagesEndRef = useRef(null);
 
+  const silenceTimerRef = useRef(null);
+
   // Hidden file input
   const fileInputRef = useRef(null);
 
@@ -84,6 +86,25 @@ function Bot({ embed = false }) {
   useEffect(() => {
     setInput(transcript);
   }, [transcript]);
+
+  useEffect(() => {
+    if (!listening) {
+      clearTimeout(silenceTimerRef.current);
+      return;
+    }
+
+    // Reset timer whenever transcript changes
+    clearTimeout(silenceTimerRef.current);
+
+    silenceTimerRef.current = setTimeout(() => {
+      console.log("Stopped due to 10 seconds of silence");
+
+      stopListening();
+      setShowRecordingBubble(false);
+    }, 5000);
+
+    return () => clearTimeout(silenceTimerRef.current);
+  }, [transcript, listening]);
 
   // Hide recording bubble when recording stops
   useEffect(() => {
@@ -249,11 +270,15 @@ function Bot({ embed = false }) {
   // Send Message
   const handleSendMessage = async (customMessage = null) => {
     console.log("SEND FUNCTION CALLED");
-    const messageText = customMessage || input;
+    const messageText =
+      typeof customMessage === "string" ? customMessage : input;
 
     // Prevent empty send
-    if (!messageText.trim() && !selectedFile) return;
-
+    if (
+      typeof messageText !== "string" ||
+      (!messageText.trim() && !selectedFile)
+    )
+      return;
     // ==========================
     // SAVE EMAIL
     // ==========================
@@ -1231,7 +1256,7 @@ function Bot({ embed = false }) {
 
               {/* Send Button */}
               <button
-                onClick={handleSendMessage}
+                onClick={() => handleSendMessage()}
                 disabled={loading || (!input.trim() && !selectedFile)}
                 className={`
     w-[35px]
