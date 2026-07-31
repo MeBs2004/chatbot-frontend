@@ -28,7 +28,7 @@ import {
   FaFileImage,
   FaFileVideo,
   FaMicrophone,
-  FaMicrophoneSlash,
+  FaStop,
 } from "react-icons/fa";
 
 function Bot({ embed = false }) {
@@ -62,8 +62,9 @@ function Bot({ embed = false }) {
 
   const silenceTimerRef = useRef(null);
 
-  // Hidden file input
   const fileInputRef = useRef(null);
+  // Hidden file input
+  const inputRef = useRef(null);
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -97,10 +98,15 @@ function Bot({ embed = false }) {
     clearTimeout(silenceTimerRef.current);
 
     silenceTimerRef.current = setTimeout(() => {
-      console.log("Stopped due to 10 seconds of silence");
+      console.log("Stopped due to 5 seconds of silence");
 
       stopListening();
       setShowRecordingBubble(false);
+
+      // Focus the input after recording stops
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
     }, 5000);
 
     return () => clearTimeout(silenceTimerRef.current);
@@ -122,15 +128,26 @@ function Bot({ embed = false }) {
   const handleMicClick = () => {
     if (loading) return;
 
+    clearTimeout(silenceTimerRef.current);
+
     if (listening) {
       stopListening();
       setShowRecordingBubble(false);
-    } else {
-      setTranscript("");
-      setInput("");
-      setShowRecordingBubble(true);
-      startListening();
+
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 150);
+
+      return;
     }
+
+    // Don't start recording if input already has text
+    if (input.trim()) return;
+
+    setTranscript("");
+    setInput("");
+    setShowRecordingBubble(true);
+    startListening();
   };
   // Auto Scroll
   useEffect(() => {
@@ -269,7 +286,15 @@ function Bot({ embed = false }) {
 
   // Send Message
   const handleSendMessage = async (customMessage = null) => {
+    // Stop recording if it is still active
+    if (listening) {
+      stopListening();
+      clearTimeout(silenceTimerRef.current);
+      setShowRecordingBubble(false);
+    }
+
     console.log("SEND FUNCTION CALLED");
+
     const messageText =
       typeof customMessage === "string" ? customMessage : input;
 
@@ -461,7 +486,11 @@ function Bot({ embed = false }) {
 
     e.preventDefault();
 
-    // Send if there is text OR any selected file
+    // Never allow Enter while recording
+    if (listening) return;
+
+    if (loading) return;
+
     if (input.trim() || selectedFile) {
       handleSendMessage();
     }
@@ -1207,6 +1236,7 @@ function Bot({ embed = false }) {
 
               {/* Text Input */}
               <input
+                ref={inputRef}
                 type="text"
                 placeholder={
                   listening ? "Listening..." : "Ask About Our Services..."
@@ -1227,7 +1257,11 @@ function Bot({ embed = false }) {
 
               {/* Mic Button */}
               <button
-                onClick={handleMicClick}
+                type="button"
+                onClick={(e) => {
+                  handleMicClick();
+                  e.currentTarget.blur(); // Remove focus so Enter won't trigger mic again
+                }}
                 disabled={!supported || loading}
                 className={`
     mr-2
@@ -1241,21 +1275,18 @@ function Bot({ embed = false }) {
     duration-300
     ${
       listening
-        ? "bg-red-500 text-white"
+        ? "bg-red-600 hover:bg-red-700 text-white"
         : "bg-gray-100 text-[#067647] hover:bg-[#067647] hover:text-white"
     }
     ${loading ? "opacity-50 cursor-not-allowed" : ""}
   `}
               >
-                {listening ? (
-                  <FaMicrophoneSlash size={15} />
-                ) : (
-                  <FaMicrophone size={15} />
-                )}
+                {listening ? <FaStop size={13} /> : <FaMicrophone size={15} />}
               </button>
 
               {/* Send Button */}
               <button
+                type="button"
                 onClick={() => handleSendMessage()}
                 disabled={loading || (!input.trim() && !selectedFile)}
                 className={`

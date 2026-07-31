@@ -10,6 +10,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import logo from "../assets/oya-logo.png";
 import logo1 from "../assets/oya-logo1.png";
+import useSpeechRecognition from "../hooks/useSpeechRecognition";
 import {
   FaTimes,
   FaPaperPlane,
@@ -22,6 +23,8 @@ import {
   FaRedo,
   FaCopy,
   FaCheck,
+  FaMicrophone,
+  FaStop,
 } from "react-icons/fa";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -261,6 +264,9 @@ function OyaBot({ embed = false }) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [failedMessage, setFailedMessage] = useState(null);
+  const [showRecordingBubble, setShowRecordingBubble] = useState(false);
+
+  const silenceTimerRef = useRef(null);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -269,6 +275,15 @@ function OyaBot({ embed = false }) {
   const mountedRef = useRef(true);
   const userScrolledUpRef = useRef(false);
   const openBotTimerRef = useRef(null);
+
+  const {
+    transcript,
+    listening,
+    supported,
+    startListening,
+    stopListening,
+    setTranscript,
+  } = useSpeechRecognition(language === "Hindi" ? "hi-IN" : "en-US");
 
   const theme = useMemo(() => company?.theme, [company]);
   const botAvatar = useMemo(
@@ -426,11 +441,73 @@ function OyaBot({ embed = false }) {
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
+  // Live transcript -> input
+  useEffect(() => {
+    setInput(transcript);
+  }, [transcript]);
+
+  useEffect(() => {
+    if (!listening) {
+      clearTimeout(silenceTimerRef.current);
+      return;
+    }
+
+    // Reset timer whenever transcript changes
+    clearTimeout(silenceTimerRef.current);
+
+    silenceTimerRef.current = setTimeout(() => {
+      stopListening();
+      setShowRecordingBubble(false);
+
+      // Focus the input after recording stops
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }, 5000);
+
+    return () => clearTimeout(silenceTimerRef.current);
+  }, [transcript, listening]);
+
+  // Hide recording bubble when recording stops
+  useEffect(() => {
+    if (!listening) {
+      setShowRecordingBubble(false);
+    }
+  }, [listening]);
+
+  // Prevent recording while bot is replying
+  const handleMicClick = () => {
+    if (loading) return;
+
+    clearTimeout(silenceTimerRef.current);
+
+    if (listening) {
+      stopListening();
+      setShowRecordingBubble(false);
+
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 150);
+
+      return;
+    }
+
+    // Don't start recording if input already has text
+    if (input.trim()) return;
+
+    setTranscript("");
+    setInput("");
+    setShowRecordingBubble(true);
+    startListening();
+  };
+
   const handleChatScroll = useCallback(() => {
     const el = chatAreaRef.current;
     if (!el) return;
+
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const scrolledUp = distFromBottom > 80;
+
     userScrolledUpRef.current = scrolledUp;
     setShowScrollBtn(scrolledUp);
   }, []);
@@ -458,6 +535,13 @@ function OyaBot({ embed = false }) {
 
   const handleSendMessage = useCallback(
     async (customMessage = null) => {
+      // Stop recording if it is still active
+      if (listening) {
+        stopListening();
+        clearTimeout(silenceTimerRef.current);
+        setShowRecordingBubble(false);
+      }
+
       const messageText = (customMessage || input).trim();
       if ((!messageText && !selectedFile) || loading || !isOnline) return;
 
@@ -576,7 +660,17 @@ function OyaBot({ embed = false }) {
         }
       }
     },
-    [input, loading, isOnline, emailAsked, userEmail, language, COMPANY_ID],
+    [
+      input,
+      loading,
+      isOnline,
+      emailAsked,
+      userEmail,
+      language,
+      COMPANY_ID,
+      listening,
+      stopListening,
+    ],
   );
 
   const handleRetry = useCallback(() => {
@@ -606,10 +700,14 @@ function OyaBot({ embed = false }) {
     (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
+
+        // Never allow Enter while recording
+        if (listening) return;
+
         handleSendMessage();
       }
     },
-    [handleSendMessage],
+    [handleSendMessage, listening],
   );
 
   const handleOpenBot = useCallback(() => {
@@ -1128,6 +1226,37 @@ ${
                 </div>
               )}
 
+              {showRecordingBubble && (
+                <div className="flex justify-end mb-4">
+                  <div
+                    style={{ backgroundColor: OYA_DARK }}
+                    className="
+                      text-white
+                      rounded-[18px]
+                      rounded-br-[6px]
+                      px-4
+                      py-3
+                      w-[170px]
+                    "
+                  >
+                    <div className="flex items-center justify-center gap-[3px] h-[34px]">
+                      {[...Array(22)].map((_, i) => (
+                        <span
+                          key={i}
+                          className="rounded-full bg-white animate-pulse"
+                          style={{
+                            width: "3px",
+                            height: `${12 + Math.sin(i) * 10 + (i % 5) * 3}px`,
+                            animationDelay: `${i * 0.05}s`,
+                            animationDuration: "0.8s",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div ref={messagesEndRef} aria-hidden="true" />
             </main>
 
@@ -1182,6 +1311,7 @@ ${
 
             <div
               className="
+      relative
       flex items-center
       border-2 rounded-[18px]
       px-2 py-1
@@ -1193,6 +1323,7 @@ ${
                 ref={fileInputRef}
                 type="file"
                 hidden
+                disabled={listening}
                 accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
                 onChange={handleFileChange}
               />
@@ -1206,17 +1337,20 @@ ${
               <input
                 ref={inputRef}
                 disabled={loading || !isOnline}
+                readOnly={listening}
                 type="text"
                 inputMode="text"
                 autoComplete="off"
                 autoCapitalize="sentences"
                 spellCheck="false"
                 placeholder={
-                  !isOnline
-                    ? "No internet connection…"
-                    : language === "Hindi"
-                      ? "अपना प्रश्न पूछें..."
-                      : "Explore elegance with Oya..."
+                  listening
+                    ? "Listening..."
+                    : !isOnline
+                      ? "No internet connection…"
+                      : language === "Hindi"
+                        ? "अपना प्रश्न पूछें..."
+                        : "Explore elegance with Oya..."
                 }
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -1234,27 +1368,81 @@ ${
                 "
               />
 
+              {/* Voice Wave */}
+              {listening && (
+                <div className="absolute left-[58px] right-[60px] flex items-center justify-center gap-[3px] pointer-events-none">
+                  {[...Array(18)].map((_, i) => (
+                    <span
+                      key={i}
+                      className="w-[3px] rounded-full animate-pulse"
+                      style={{
+                        height: `${10 + (i % 6) * 5}px`,
+                        backgroundColor: OYA_GOLD,
+                        animationDelay: `${i * 0.08}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Mic Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  handleMicClick();
+                  e.currentTarget.blur();
+                }}
+                disabled={!supported || loading}
+                aria-label={listening ? "Stop recording" : "Start recording"}
+                className={`
+    oya-ctrl
+    mr-2
+    w-[35px]
+    h-[35px]
+    rounded-full
+    flex
+    items-center
+    justify-center
+    transition-all
+    duration-300
+    ${
+      listening
+        ? "bg-red-600 hover:bg-red-700 text-white"
+        : "bg-gray-100 text-[#5E0F28] hover:bg-[#5E0F28] hover:text-white"
+    }
+    ${loading ? "opacity-50 cursor-not-allowed" : ""}
+  `}
+              >
+                {listening ? <FaStop size={13} /> : <FaMicrophone size={15} />}
+              </button>
+
+              {/* Send Button */}
               <button
                 disabled={!canSend}
                 onClick={() => handleSendMessage()}
                 aria-label="Send message"
-                style={{ backgroundColor: canSend ? OYA_DARK : "#e5e7eb" }}
+                style={{
+                  backgroundColor: canSend ? OYA_DARK : "#e5e7eb",
+                }}
                 className="
-                  oya-ctrl
-                  w-[35px] h-[35px]
-                  rounded-[12px]
-                  flex items-center justify-center
-                  shrink-0
-                  hover:scale-105 active:scale-95
-                  disabled:cursor-not-allowed disabled:hover:scale-100
-                  transition-all duration-200
-                "
+    oya-ctrl
+    w-[35px]
+    h-[35px]
+    rounded-[12px]
+    flex
+    items-center
+    justify-center
+    shrink-0
+    hover:scale-105
+    active:scale-95
+    disabled:cursor-not-allowed
+    disabled:hover:scale-100
+    transition-all
+    duration-200
+  "
               >
                 {loading ? (
-                  <div
-                    className="w-[15px] h-[15px] border-2 border-white border-t-transparent rounded-full animate-spin"
-                    aria-label="Sending…"
-                  />
+                  <div className="w-[15px] h-[15px] border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <FaPaperPlane
                     size={14}
