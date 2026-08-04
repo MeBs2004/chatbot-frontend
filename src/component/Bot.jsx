@@ -8,6 +8,7 @@ import logo from "../assets/logo.png";
 import logo1 from "../assets/logo1.png";
 
 import useSpeechRecognition from "../hooks/useSpeechRecognition";
+import useTextToSpeech from "../hooks/useTextToSpeech";
 
 import {
   FaTimes,
@@ -29,6 +30,7 @@ import {
   FaFileVideo,
   FaMicrophone,
   FaStop,
+  FaVolumeUp,
 } from "react-icons/fa";
 
 function Bot({ embed = false }) {
@@ -77,6 +79,16 @@ function Bot({ embed = false }) {
     setTranscript,
   } = useSpeechRecognition(language === "Hindi" ? "hi-IN" : "en-US");
 
+  const {
+    supported: speechSupported,
+    speaking,
+    speak,
+    stop,
+  } = useTextToSpeech();
+
+  // Track which bot message is currently speaking
+  const [speakingMessageId, setSpeakingMessageId] = useState(null);
+
   const axiosConfig = {
     headers: {
       "x-company-id": "nuform-social",
@@ -119,11 +131,17 @@ function Bot({ embed = false }) {
     }
   }, [listening]);
 
+  // If speech finishes naturally, clear the active message
+  useEffect(() => {
+    if (!speaking) {
+      setSpeakingMessageId(null);
+    }
+  }, [speaking]);
+
   // Update input while speaking
   useEffect(() => {
     setInput(transcript);
   }, [transcript]);
-
   // Prevent recording while bot is replying
   const handleMicClick = () => {
     if (loading) return;
@@ -435,6 +453,7 @@ function Bot({ embed = false }) {
               sender: "bot",
             });
 
+            // 🔊 Read the email prompt too
             setEmailAsked(true);
           }
 
@@ -771,7 +790,6 @@ function Bot({ embed = false }) {
           bg-[#25D366]
           text-white
           text-[12px]
-          font-medium
         "
                 >
                   <FaWhatsapp size={14} />
@@ -999,6 +1017,62 @@ function Bot({ embed = false }) {
                   >
                     {msg.text}
                   </ReactMarkdown>
+                  {/* Speaker UI */}
+                  {msg.sender === "bot" &&
+                    speechSupported &&
+                    (speaking && speakingMessageId === index ? (
+                      <button
+                        onClick={() => {
+                          stop();
+                          setSpeakingMessageId(null);
+                        }}
+                        className="
+        mt-[10px]
+        inline-flex
+        items-center
+        gap-[6px]
+        p-0
+        text-[14px]
+        font-medium
+        text-[#6b7280]
+        hover:text-[#4b5563]
+        cursor-pointer
+        transition-colors
+        duration-200
+      "
+                      >
+                        <FaStop size={14} />
+                        <span>{language === "Hindi" ? "रोकें" : "Stop"}</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setSpeakingMessageId(index);
+
+                          speak(
+                            msg.text,
+                            language === "Hindi" ? "hi-IN" : "en-US",
+                          );
+                        }}
+                        className="
+        mt-[10px]
+        inline-flex
+        items-center
+        gap-[6px]
+        p-0
+        text-[14px]
+        font-medium
+        text-[#6b7280]
+        hover:text-[#4b5563]
+        cursor-pointer
+        transition-colors
+        duration-200
+      "
+                      >
+                        <FaVolumeUp size={15} />
+                        <span>{language === "Hindi" ? "सुनें" : "Listen"}</span>
+                      </button>
+                    ))}
                 </div>
               </div>
             ))}

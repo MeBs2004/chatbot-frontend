@@ -11,6 +11,7 @@ import remarkGfm from "remark-gfm";
 import logo from "../assets/oya-logo.png";
 import logo1 from "../assets/oya-logo1.png";
 import useSpeechRecognition from "../hooks/useSpeechRecognition";
+import useTextToSpeech from "../hooks/useTextToSpeech";
 import {
   FaTimes,
   FaPaperPlane,
@@ -25,6 +26,8 @@ import {
   FaCheck,
   FaMicrophone,
   FaStop,
+  FaVolumeUp,
+  FaVolumeMute,
 } from "react-icons/fa";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -285,6 +288,8 @@ function OyaBot({ embed = false }) {
     setTranscript,
   } = useSpeechRecognition(language === "Hindi" ? "hi-IN" : "en-US");
 
+  const { speak, stop, speaking } = useTextToSpeech();
+
   const theme = useMemo(() => company?.theme, [company]);
   const botAvatar = useMemo(
     () => company?.branding?.botAvatar || logo,
@@ -495,6 +500,8 @@ function OyaBot({ embed = false }) {
     // Don't start recording if input already has text
     if (input.trim()) return;
 
+    stop();
+
     setTranscript("");
     setInput("");
     setShowRecordingBubble(true);
@@ -635,6 +642,9 @@ function OyaBot({ embed = false }) {
           }
           return next;
         });
+
+        // Speak bot response
+        // speak(botText, language === "Hindi" ? "hi-IN" : "en-IN");
       } catch (err) {
         if (!mountedRef.current) return;
         console.error("Message Error:", err.response?.data || err.message);
@@ -687,6 +697,7 @@ function OyaBot({ embed = false }) {
   }, [failedMessage, handleSendMessage]);
 
   const clearChatHistory = useCallback(() => {
+    stop();
     localStorage.removeItem("oya_chat_history");
     localStorage.removeItem("oya_user_email");
     setMessages([]);
@@ -694,7 +705,7 @@ function OyaBot({ embed = false }) {
     setEmailAsked(false);
     setShowSuggestions(true);
     setFailedMessage(null);
-  }, []);
+  }, [stop]);
 
   const handleKeyPress = useCallback(
     (e) => {
@@ -902,6 +913,8 @@ ${
 
               <button
                 onClick={() => {
+                  stop();
+
                   if (embed) {
                     window.parent.postMessage(
                       {
@@ -1148,6 +1161,39 @@ ${
                       >
                         <FaRedo size={9} />
                         <span>Retry</span>
+                      </button>
+                    )}
+                    {msg.sender === "bot" && (
+                      <button
+                        onClick={() =>
+                          speaking
+                            ? stop()
+                            : speak(
+                                msg.text,
+                                language === "Hindi" ? "hi-IN" : "en-IN",
+                              )
+                        }
+                        className="
+      oya-ctrl
+      mt-[6px]
+      flex items-center gap-1
+      text-[11px]
+      text-gray-500
+      hover:text-[#5E0F28]
+      transition
+    "
+                      >
+                        {speaking ? (
+                          <>
+                            <FaVolumeMute size={12} />
+                            <span>Stop</span>
+                          </>
+                        ) : (
+                          <>
+                            <FaVolumeUp size={12} />
+                            <span>Listen</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
