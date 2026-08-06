@@ -37,6 +37,13 @@ const OYA_MID = "#8C2346";
 const OYA_GOLD = "#B8865B";
 const OYA_CHAMPAGNE = "#F3D6B6";
 
+// Launcher-only luxury palette (does not affect the opened chatbot's styling)
+const LAUNCHER_LUX_PRIMARY = "#C9A227";
+const LAUNCHER_LUX_ACCENT = "#D4AF37";
+const LAUNCHER_LUX_SOFT_GOLD = "#E7C873";
+const LAUNCHER_LUX_CREAM = "#FFFDF8";
+const LAUNCHER_LUX_TEXT = "#2E2E2E";
+
 const OYA_SERVICE_CHIPS = [
   "Natural Gemstones",
   "Premium Jewellery",
@@ -44,6 +51,36 @@ const OYA_SERVICE_CHIPS = [
   "Book Appointment",
   "Customer Support",
 ];
+
+// ── Launcher greeting bubble ──────────────────────────────────────────────
+const OYA_LAUNCHER_MESSAGES = [
+  "✨ Welcome to OYA",
+  "💎 Looking for timeless jewellery?",
+  "✨ Find your perfect sparkle",
+  "💍 Discover handcrafted elegance",
+  "✨ Explore our latest collection",
+  "💎 Looking for the perfect gift?",
+  "✨ Need styling advice?",
+  "💍 Let's find something beautiful",
+  "✨ Browse rings, earrings & necklaces",
+  "💎 Ask me anything about OYA",
+  "✨ Your jewellery assistant is here",
+];
+
+function pickNextLauncherMessage(lastMessage) {
+  if (OYA_LAUNCHER_MESSAGES.length <= 1) return OYA_LAUNCHER_MESSAGES[0];
+
+  let next;
+
+  do {
+    next =
+      OYA_LAUNCHER_MESSAGES[
+        Math.floor(Math.random() * OYA_LAUNCHER_MESSAGES.length)
+      ];
+  } while (next === lastMessage);
+
+  return next;
+}
 
 const GLOBAL_STYLES = `
   @keyframes botEnter {
@@ -59,20 +96,80 @@ const GLOBAL_STYLES = `
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0);   }
   }
-  @keyframes fabGlow {
-    0%   { box-shadow: 0 0 0 0    rgba(255,255,255,0.55); }
-    70%  { box-shadow: 0 0 0 14px rgba(255,255,255,0);    }
-    100% { box-shadow: 0 0 0 0    rgba(255,255,255,0);    }
+  @keyframes oyaLauncherFloat {
+    0%   { transform: translateY(0); }
+    25%  { transform: translateY(-8px); }
+    50%  { transform: translateY(0); }
+    75%  { transform: translateY(8px); }
+    100% { transform: translateY(0); }
   }
-  @keyframes badgeBounce {
-    0%,100% { transform: scale(1);   }
-    50%     { transform: scale(1.2); }
+  @keyframes oyaLauncherBreathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.03); }
+  }
+  @keyframes oyaLauncherGlow {
+    0%, 100% { box-shadow: 0 0 0 rgba(212, 175, 55, 0); }
+    6%       { box-shadow: 0 0 22px 6px rgba(212, 175, 55, 0.4); }
+    14%      { box-shadow: 0 0 0 rgba(212, 175, 55, 0); }
+  }
+  @keyframes oyaBubbleEnter {
+    from { opacity: 0; transform: translateY(10px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  }
+  @keyframes oyaBubbleExit {
+    from { opacity: 1; transform: translateY(0)    scale(1);    }
+    to   { opacity: 0; transform: translateY(10px) scale(0.95); }
+  }
+  @keyframes oyaLauncherHalo {
+    0%   { transform: scale(0.9);  opacity: 0.4;  }
+    50%  { transform: scale(1.25); opacity: 0.18; }
+    100% { transform: scale(1.5);  opacity: 0;    }
+  }
+  @keyframes oyaLauncherShimmer {
+    0%, 88% { background-position: -120% -120%; opacity: 0;   }
+    92%     { opacity: 0.7; }
+    100%    { background-position: 220% 220%;   opacity: 0;   }
+  }
+  @keyframes oyaSparkleFade {
+    0%, 100% { opacity: 0;    transform: scale(0.4); }
+    50%      { opacity: 0.85; transform: scale(1);   }
+  }
+  @keyframes oyaLauncherEntrance {
+    from { opacity: 0; transform: translateY(24px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0)     scale(1);   }
   }
 
   .bot-enter { animation: botEnter 0.44s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
   .msg-enter { animation: msgSlide 0.22s ease forwards; }
   .fade-up   { animation: fadeUp   0.28s ease forwards; }
-  .fab-glow  { animation: fabGlow  2.4s  ease-out infinite; }
+
+  .oya-launcher-float     { animation: oyaLauncherFloat 4.5s ease-in-out infinite; }
+  .oya-launcher-breathe   { animation: oyaLauncherBreathe 5.5s ease-in-out infinite; }
+  .oya-launcher-glow      { animation: oyaLauncherGlow 8s ease-in-out infinite; }
+  .oya-launcher-halo      { animation: oyaLauncherHalo 3.4s ease-out infinite; filter: blur(6px); }
+  .oya-launcher-shimmer   {
+    animation: oyaLauncherShimmer 9s ease-in-out infinite;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.85) 50%, transparent 70%);
+    background-size: 250% 250%;
+  }
+  .oya-launcher-entrance  { animation: oyaLauncherEntrance 0.6s ease-out forwards; }
+  .oya-sparkle            { animation: oyaSparkleFade var(--dur, 4s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+  .oya-bubble-enter       { animation: oyaBubbleEnter 0.3s ease forwards; }
+  .oya-bubble-exit        { animation: oyaBubbleExit 0.3s ease forwards; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .oya-launcher-float,
+    .oya-launcher-breathe,
+    .oya-launcher-glow,
+    .oya-launcher-halo,
+    .oya-launcher-shimmer,
+    .oya-launcher-entrance,
+    .oya-sparkle,
+    .oya-bubble-enter,
+    .oya-bubble-exit {
+      animation: none !important;
+    }
+  }
 
   .chat-scroll {
     -webkit-overflow-scrolling: touch;
@@ -109,6 +206,10 @@ const GLOBAL_STYLES = `
     .fab-wrap {
       bottom: 20px !important;
       right: 16px !important;
+    }
+
+    .oya-launcher-bubble {
+      max-width: calc(100vw - 90px) !important;
     }
   }
 `;
@@ -268,6 +369,30 @@ function OyaBot({ embed = false }) {
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [failedMessage, setFailedMessage] = useState(null);
   const [showRecordingBubble, setShowRecordingBubble] = useState(false);
+
+  // Launcher greeting bubble
+  const [launcherBubbleStage, setLauncherBubbleStage] = useState("idle"); // idle | indicator | typing | visible | hiding
+  const [launcherBubbleText, setLauncherBubbleText] = useState("");
+  const lastLauncherMessageRef = useRef("");
+  const dismissLauncherBubbleRef = useRef(() => {});
+
+  // Random sparkle positions around the launcher, generated once per mount
+  const launcherSparkles = useMemo(() => {
+    const SPARKLE_COUNT = 5;
+
+    return Array.from({ length: SPARKLE_COUNT }, (_, i) => {
+      const angle = (i / SPARKLE_COUNT) * Math.PI * 2 + Math.random() * 0.8;
+      const radius = 34 + Math.random() * 16;
+
+      return {
+        id: i,
+        top: 40 + Math.sin(angle) * radius,
+        left: 40 + Math.cos(angle) * radius,
+        delay: Math.random() * 4,
+        duration: 3.2 + Math.random() * 2.2,
+      };
+    });
+  }, []);
 
   const silenceTimerRef = useRef(null);
 
@@ -443,6 +568,88 @@ function OyaBot({ embed = false }) {
     if (!userScrolledUpRef.current)
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // Drives the launcher greeting bubble lifecycle: wait -> typing indicator ->
+  // type message -> hold -> fade -> wait -> repeat. Only runs while the
+  // launcher itself is visible (chat closed, not embedded).
+  useEffect(() => {
+    const launcherVisible = !embed && !openBot;
+
+    if (!launcherVisible) {
+      setLauncherBubbleStage("idle");
+      setLauncherBubbleText("");
+      return;
+    }
+
+    let cancelled = false;
+    let timerId = null;
+
+    const wait = (ms, next) => {
+      timerId = setTimeout(() => {
+        if (!cancelled) next();
+      }, ms);
+    };
+
+    const typeMessage = (message, charIndex) => {
+      if (cancelled) return;
+
+      setLauncherBubbleText(message.slice(0, charIndex));
+
+      if (charIndex >= message.length) {
+        setLauncherBubbleStage("visible");
+
+        const goToHiding = () => {
+          if (cancelled) return;
+
+          setLauncherBubbleStage("hiding");
+
+          wait(300, () => {
+            setLauncherBubbleStage("idle");
+            setLauncherBubbleText("");
+            wait(8000, startCycle);
+          });
+        };
+
+        dismissLauncherBubbleRef.current = () => {
+          clearTimeout(timerId);
+          goToHiding();
+        };
+
+        wait(4000, goToHiding);
+
+        return;
+      }
+
+      wait(35 + Math.random() * 10, () => typeMessage(message, charIndex + 1));
+    };
+
+    const startCycle = () => {
+      if (cancelled) return;
+
+      wait(2000, () => {
+        setLauncherBubbleStage("indicator");
+
+        wait(700, () => {
+          const message = pickNextLauncherMessage(
+            lastLauncherMessageRef.current,
+          );
+
+          lastLauncherMessageRef.current = message;
+
+          setLauncherBubbleStage("typing");
+          typeMessage(message, 0);
+        });
+      });
+    };
+
+    startCycle();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+      dismissLauncherBubbleRef.current = () => {};
+    };
+  }, [embed, openBot]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -733,44 +940,180 @@ function OyaBot({ embed = false }) {
     <>
       <style>{GLOBAL_STYLES}</style>
 
-      {/* ════════════ Floating Button ════════════ */}
+      {/* ════════════ Floating Launcher ════════════ */}
       {!embed && !openBot && (
-        <div className="fab-wrap fixed bottom-5 right-5 z-50">
-          <button
-            onClick={handleOpenBot}
-            aria-label="Open OYA jewellery assistant"
-            style={{ backgroundColor: OYA_DARK }}
-            className="
-              oya-ctrl fab-glow
-              w-[60px] h-[60px]
-              rounded-full
-              flex items-center justify-center
-              shadow-2xl
-              hover:scale-105
-              active:scale-95
-              transition-all duration-300
-            "
-          >
-            <img
-              src={logo}
-              alt="OYA by Gemkara"
-              className="w-[70px] h-[70px] object-cover rounded-full"
-            />
-          </button>
+        <div className="fab-wrap fixed bottom-5 right-5 z-50 oya-launcher-entrance">
+          <div className="relative oya-launcher-float">
+            {/* AI Greeting Bubble */}
+            {launcherBubbleStage !== "idle" && (
+              <div
+                className={`
+                  absolute bottom-[77px] right-0
+                  ${launcherBubbleStage === "hiding" ? "oya-bubble-exit" : "oya-bubble-enter"}
+                `}
+              >
+                <div
+                  className="oya-launcher-bubble relative flex items-start gap-[6px] rounded-xl shadow-[0_6px_20px_rgba(0,0,0,0.1)] pl-[8px] pr-3 py-[7px] min-w-[150px] max-w-[195px]"
+                  style={{
+                    background: LAUNCHER_LUX_CREAM,
+                    border: `1px solid ${LAUNCHER_LUX_ACCENT}66`,
+                  }}
+                >
+                  <img
+                    src={logo}
+                    alt=""
+                    aria-hidden="true"
+                    className="w-[16px] h-[16px] rounded-full object-cover mt-[2px] flex-shrink-0"
+                    style={{ border: `1px solid ${LAUNCHER_LUX_ACCENT}66` }}
+                  />
 
-          <span
-            aria-label="1 new message"
-            style={{ animation: "badgeBounce 1.8s ease-in-out infinite" }}
-            className="
-              absolute -top-[4px] -right-[4px]
-              w-[19px] h-[19px]
-              bg-red-500 text-white text-[9px] font-bold
-              rounded-full flex items-center justify-center
-              border-2 border-white shadow-md
-            "
-          >
-            1
-          </span>
+                  {launcherBubbleStage === "indicator" ? (
+                    <div
+                      className="flex items-center gap-1 h-[11px] mt-[3px]"
+                      aria-hidden="true"
+                    >
+                      <span
+                        className="w-[4px] h-[4px] rounded-full animate-bounce"
+                        style={{ backgroundColor: LAUNCHER_LUX_PRIMARY }}
+                      />
+                      <span
+                        className="w-[4px] h-[4px] rounded-full animate-bounce"
+                        style={{
+                          backgroundColor: LAUNCHER_LUX_PRIMARY,
+                          animationDelay: "0.15s",
+                        }}
+                      />
+                      <span
+                        className="w-[4px] h-[4px] rounded-full animate-bounce"
+                        style={{
+                          backgroundColor: LAUNCHER_LUX_PRIMARY,
+                          animationDelay: "0.3s",
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <p
+                      className="text-[11.5px] font-medium leading-snug tracking-wide pt-[1px]"
+                      style={{ color: LAUNCHER_LUX_TEXT }}
+                      aria-live="polite"
+                    >
+                      {launcherBubbleText}
+                    </p>
+                  )}
+
+                  {/* Dismiss */}
+                  {launcherBubbleStage === "visible" && (
+                    <button
+                      onClick={() => dismissLauncherBubbleRef.current()}
+                      aria-label="Dismiss greeting"
+                      className="
+                        oya-ctrl
+                        absolute -top-[5px] -right-[5px]
+                        w-[14px] h-[14px]
+                        rounded-full
+                        shadow-sm
+                        flex items-center justify-center
+                        text-gray-400 hover:text-gray-600
+                        leading-none
+                        transition-colors
+                      "
+                      style={{
+                        background: LAUNCHER_LUX_CREAM,
+                        border: `1px solid ${LAUNCHER_LUX_ACCENT}66`,
+                      }}
+                    >
+                      <FaTimes size={6} />
+                    </button>
+                  )}
+
+                  {/* Tail */}
+                  <div
+                    className="absolute -bottom-[5px] right-[20px] w-[10px] h-[10px] rotate-45"
+                    style={{
+                      background: LAUNCHER_LUX_CREAM,
+                      borderBottom: `1px solid ${LAUNCHER_LUX_ACCENT}66`,
+                      borderRight: `1px solid ${LAUNCHER_LUX_ACCENT}66`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Luxury Halo */}
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full oya-launcher-halo pointer-events-none"
+              style={{
+                background: `radial-gradient(circle, ${LAUNCHER_LUX_ACCENT}8c 0%, ${LAUNCHER_LUX_ACCENT}00 70%)`,
+              }}
+            />
+
+            {/* Sparkles */}
+            <div
+              aria-hidden="true"
+              className="absolute -inset-[30px] pointer-events-none"
+            >
+              {launcherSparkles.map((s) => (
+                <span
+                  key={s.id}
+                  className="absolute oya-sparkle"
+                  style={{
+                    top: `${s.top}px`,
+                    left: `${s.left}px`,
+                    fontSize: "8px",
+                    color: LAUNCHER_LUX_SOFT_GOLD,
+                    textShadow: `0 0 4px ${LAUNCHER_LUX_ACCENT}cc`,
+                    "--dur": `${s.duration}s`,
+                    "--delay": `${s.delay}s`,
+                  }}
+                >
+                  ✦
+                </span>
+              ))}
+            </div>
+
+            <button
+              onClick={handleOpenBot}
+              aria-label="Open OYA jewellery assistant"
+              style={{ backgroundColor: LAUNCHER_LUX_PRIMARY }}
+              className="
+                oya-ctrl
+                relative
+                w-[60px] h-[60px]
+                rounded-full
+                flex items-center justify-center
+                shadow-2xl
+                hover:scale-[1.05]
+                hover:rotate-1
+                transition-transform
+                duration-[250ms]
+              "
+            >
+              <div className="oya-launcher-breathe oya-launcher-glow relative w-full h-full rounded-full flex items-center justify-center">
+                <img
+                  src={logo}
+                  alt="OYA by Gemkara"
+                  className="w-[70px] h-[70px] object-cover rounded-full"
+                />
+
+                {/* Shimmer */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full overflow-hidden pointer-events-none"
+                >
+                  <span className="absolute inset-0 oya-launcher-shimmer" />
+                </span>
+              </div>
+
+              {/* Notification Dot */}
+              {launcherBubbleStage !== "idle" && (
+                <span
+                  className="absolute top-0 right-0 w-[12px] h-[12px] rounded-full border border-white animate-pulse"
+                  style={{ backgroundColor: LAUNCHER_LUX_ACCENT }}
+                />
+              )}
+            </button>
+          </div>
         </div>
       )}
 

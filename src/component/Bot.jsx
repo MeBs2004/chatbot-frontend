@@ -33,6 +33,73 @@ import {
   FaVolumeUp,
 } from "react-icons/fa";
 
+// ── Launcher greeting bubble ──────────────────────────────────────────────
+const LAUNCHER_MESSAGES = [
+  "👋 Hi there!",
+  "Hello 👋",
+  "Need any help?",
+  "Let's build your website 🚀",
+  "Want more leads?",
+  "Need SEO Services?",
+  "Need Digital Marketing?",
+  "Let's grow your business 📈",
+  "Need a website?",
+  "Ask me anything.",
+  "How can I help today?",
+];
+
+function pickNextLauncherMessage(lastMessage) {
+  if (LAUNCHER_MESSAGES.length <= 1) return LAUNCHER_MESSAGES[0];
+
+  let next;
+
+  do {
+    next =
+      LAUNCHER_MESSAGES[Math.floor(Math.random() * LAUNCHER_MESSAGES.length)];
+  } while (next === lastMessage);
+
+  return next;
+}
+
+const LAUNCHER_STYLES = `
+  @keyframes nuformLauncherFloat {
+    0%   { transform: translateY(0); }
+    25%  { transform: translateY(-8px); }
+    50%  { transform: translateY(0); }
+    75%  { transform: translateY(8px); }
+    100% { transform: translateY(0); }
+  }
+  @keyframes nuformLauncherBreathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.03); }
+  }
+  @keyframes nuformLauncherGlow {
+    0%, 100% { box-shadow: 0 0 0 rgba(6, 118, 71, 0); }
+    6%       { box-shadow: 0 0 22px 6px rgba(6, 118, 71, 0.45); }
+    14%      { box-shadow: 0 0 0 rgba(6, 118, 71, 0); }
+  }
+  @keyframes nuformBubbleEnter {
+    from { opacity: 0; transform: translateY(10px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  }
+  @keyframes nuformBubbleExit {
+    from { opacity: 1; transform: translateY(0)    scale(1);    }
+    to   { opacity: 0; transform: translateY(10px) scale(0.95); }
+  }
+  @keyframes nuformLauncherPulseRing {
+    0%   { transform: scale(0.85); opacity: 0.55; }
+    70%  { transform: scale(1.35); opacity: 0; }
+    100% { transform: scale(1.35); opacity: 0; }
+  }
+
+  .nuform-launcher-float      { animation: nuformLauncherFloat 4.5s ease-in-out infinite; }
+  .nuform-launcher-breathe    { animation: nuformLauncherBreathe 5.5s ease-in-out infinite; }
+  .nuform-launcher-glow       { animation: nuformLauncherGlow 8s ease-in-out infinite; }
+  .nuform-launcher-pulse-ring { animation: nuformLauncherPulseRing 2.6s ease-out infinite; }
+  .nuform-bubble-enter        { animation: nuformBubbleEnter 0.3s ease forwards; }
+  .nuform-bubble-exit      { animation: nuformBubbleExit 0.3s ease forwards; }
+`;
+
 function Bot({ embed = false }) {
   const [emailAsked, setEmailAsked] = useState(false);
 
@@ -88,6 +155,94 @@ function Bot({ embed = false }) {
 
   // Track which bot message is currently speaking
   const [speakingMessageId, setSpeakingMessageId] = useState(null);
+
+  // Launcher greeting bubble
+  const [bubbleStage, setBubbleStage] = useState("idle"); // idle | indicator | typing | visible | hiding
+  const [bubbleText, setBubbleText] = useState("");
+  const lastLauncherMessageRef = useRef("");
+  const dismissBubbleRef = useRef(() => {});
+
+  // Drives the launcher greeting bubble lifecycle: wait -> typing indicator ->
+  // type message -> hold -> fade -> wait -> repeat. Only runs while the
+  // launcher itself is visible (chat closed, not embedded).
+  useEffect(() => {
+    const launcherVisible = !embed && !openBot;
+
+    if (!launcherVisible) {
+      setBubbleStage("idle");
+      setBubbleText("");
+      return;
+    }
+
+    let cancelled = false;
+    let timerId = null;
+
+    const wait = (ms, next) => {
+      timerId = setTimeout(() => {
+        if (!cancelled) next();
+      }, ms);
+    };
+
+    const typeMessage = (message, charIndex) => {
+      if (cancelled) return;
+
+      setBubbleText(message.slice(0, charIndex));
+
+      if (charIndex >= message.length) {
+        setBubbleStage("visible");
+
+        const goToHiding = () => {
+          if (cancelled) return;
+
+          setBubbleStage("hiding");
+
+          wait(300, () => {
+            setBubbleStage("idle");
+            setBubbleText("");
+            wait(8000, startCycle);
+          });
+        };
+
+        dismissBubbleRef.current = () => {
+          clearTimeout(timerId);
+          goToHiding();
+        };
+
+        wait(4000, goToHiding);
+
+        return;
+      }
+
+      wait(35 + Math.random() * 10, () => typeMessage(message, charIndex + 1));
+    };
+
+    const startCycle = () => {
+      if (cancelled) return;
+
+      wait(2000, () => {
+        setBubbleStage("indicator");
+
+        wait(700, () => {
+          const message = pickNextLauncherMessage(
+            lastLauncherMessageRef.current,
+          );
+
+          lastLauncherMessageRef.current = message;
+
+          setBubbleStage("typing");
+          typeMessage(message, 0);
+        });
+      });
+    };
+
+    startCycle();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timerId);
+      dismissBubbleRef.current = () => {};
+    };
+  }, [embed, openBot]);
 
   const axiosConfig = {
     headers: {
@@ -517,37 +672,110 @@ function Bot({ embed = false }) {
 
   return (
     <>
-      {/* Floating Button */}
+      <style>{LAUNCHER_STYLES}</style>
+
+      {/* Floating Launcher */}
       {!embed && !openBot && (
-        <button
-          onClick={() => setOpenBot(true)}
-          className="
-            fixed
-            bottom-5
-            right-5
-            w-[75px]
-            h-[75px]
-            rounded-full
-            flex
-            items-center
-            justify-center
-            text-white
-            z-50
-            hover:scale-105
-            transition-all
-            duration-300
-          "
-        >
-          <img
-            src={logo1}
-            alt="Logo"
+        <div className="fixed bottom-5 right-5 z-50 nuform-launcher-float">
+          {/* AI Greeting Bubble */}
+          {bubbleStage !== "idle" && (
+            <div
+              className={`
+                absolute bottom-[72px] right-0
+                ${bubbleStage === "hiding" ? "nuform-bubble-exit" : "nuform-bubble-enter"}
+              `}
+            >
+              <div className="relative flex items-start gap-[6px] bg-white border border-gray-200 rounded-xl shadow-[0_6px_20px_rgba(0,0,0,0.1)] pl-[8px] pr-3 py-[7px] min-w-[150px] max-w-[195px]">
+                <img
+                  src={logo}
+                  alt=""
+                  aria-hidden="true"
+                  className="w-[16px] h-[16px] rounded-full object-cover mt-[2px] flex-shrink-0"
+                />
+
+                {bubbleStage === "indicator" ? (
+                  <div className="flex items-center gap-1 h-[11px] mt-[3px]">
+                    <span className="w-[4px] h-[4px] rounded-full bg-gray-400 animate-bounce" />
+                    <span
+                      className="w-[4px] h-[4px] rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: "0.15s" }}
+                    />
+                    <span
+                      className="w-[4px] h-[4px] rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: "0.3s" }}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-[11.5px] font-medium text-gray-700 leading-snug pt-[1px]">
+                    {bubbleText}
+                  </p>
+                )}
+
+                {/* Dismiss */}
+                {bubbleStage === "visible" && (
+                  <button
+                    onClick={() => dismissBubbleRef.current()}
+                    aria-label="Dismiss"
+                    className="
+                      absolute -top-[5px] -right-[5px]
+                      w-[14px] h-[14px]
+                      rounded-full
+                      bg-white border border-gray-200
+                      shadow-sm
+                      flex items-center justify-center
+                      text-gray-400 hover:text-gray-600
+                      leading-none
+                      transition-colors
+                    "
+                  >
+                    <FaTimes size={6} />
+                  </button>
+                )}
+
+                {/* Tail */}
+                <div className="absolute -bottom-[5px] right-[20px] w-[10px] h-[10px] bg-white border-b border-r border-gray-200 rotate-45" />
+              </div>
+            </div>
+          )}
+
+          {/* Pulse Ring */}
+          <span className="absolute inset-0 rounded-full bg-[#067647] nuform-launcher-pulse-ring pointer-events-none" />
+
+          <button
+            onClick={() => setOpenBot(true)}
             className="
+              relative
               w-[55px]
               h-[55px]
-              object-contain
+              rounded-full
+              flex
+              items-center
+              justify-center
+              text-white
+              hover:scale-[1.08]
+              hover:rotate-2
+              transition-transform
+              duration-[250ms]
             "
-          />
-        </button>
+          >
+            <div className="nuform-launcher-breathe nuform-launcher-glow w-full h-full rounded-full flex items-center justify-center">
+              <img
+                src={logo1}
+                alt="Logo"
+                className="
+                  w-[55px]
+                  h-[55px]
+                  object-contain
+                "
+              />
+            </div>
+
+            {/* Notification Dot */}
+            {bubbleStage !== "idle" && (
+              <span className="absolute top-0 right-0 w-[11px] h-[11px] rounded-full bg-[#e36b0a] border border-white animate-pulse" />
+            )}
+          </button>
+        </div>
       )}
       {/* Chatbot */}
       {(openBot || embed) && (
