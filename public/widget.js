@@ -59,7 +59,8 @@
         imgSize: 70,
         imgFit: "cover",
         imgRadius: "50%",
-        buttonBg: "rgba(255, 255, 255, 1)",
+        buttonBg: "rgba(255, 255, 255, 0)",
+        buttonShadow: "none",
         glowColor: "212, 175, 55",
         haloColor: "#D4AF37",
         sparkleColor: "#E7C873",
@@ -84,6 +85,7 @@
         imgFit: "contain",
         imgRadius: "0",
         buttonBg: "transparent",
+        buttonShadow: "0 10px 30px rgba(0,0,0,.25)",
         glowColor: "6, 118, 71",
         haloColor: null,
         sparkleColor: null,
@@ -376,7 +378,7 @@
       justifyContent: "center",
       background: cfg.buttonBg,
       cursor: "pointer",
-      boxShadow: "0 10px 30px rgba(0,0,0,.25)",
+      boxShadow: cfg.buttonShadow,
       transition: "transform .25s ease",
     });
 

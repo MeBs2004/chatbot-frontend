@@ -1075,14 +1075,13 @@ function OyaBot({ embed = false }) {
             <button
               onClick={handleOpenBot}
               aria-label="Open OYA jewellery assistant"
-              style={{ backgroundColor: "rgb(249, 248, 248)" }}
+              style={{ backgroundColor: "rgba(249, 248, 248, 0)" }}
               className="
                 oya-ctrl
                 relative
                 w-[62px] h-[62px]
                 rounded-full
                 flex items-center justify-center
-                shadow-1xl
                 hover:scale-[1.05]
                 hover:rotate-1
                 transition-transform
