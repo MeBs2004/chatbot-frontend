@@ -1075,21 +1075,21 @@ function OyaBot({ embed = false }) {
             <button
               onClick={handleOpenBot}
               aria-label="Open OYA jewellery assistant"
-              style={{ backgroundColor: LAUNCHER_LUX_PRIMARY }}
+              style={{ backgroundColor: "rgb(249, 248, 248)" }}
               className="
                 oya-ctrl
                 relative
-                w-[60px] h-[60px]
+                w-[62px] h-[62px]
                 rounded-full
                 flex items-center justify-center
-                shadow-2xl
+                shadow-1xl
                 hover:scale-[1.05]
                 hover:rotate-1
                 transition-transform
                 duration-[250ms]
               "
             >
-              <div className="oya-launcher-breathe oya-launcher-glow relative w-full h-full rounded-full flex items-center justify-center">
+              <div className="oya-launcher-breathe oya-launcher-glow relative w-full h-full rounded-full overflow-hidden flex items-center justify-center">
                 <img
                   src={logo}
                   alt="OYA by Gemkara"
