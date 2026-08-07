@@ -670,19 +670,41 @@
     }
 
     // ==========================================
-    // Mobile Fullscreen
+    // Responsive sizing (mobile fullscreen vs desktop fixed)
+    // Re-applied on resize/orientation-change, not just at load,
+    // so it stays correct if the viewport changes after mount.
     // ==========================================
 
-    if (window.innerWidth <= 480) {
-      Object.assign(iframe.style, {
-        width: "100vw",
-        height: "100dvh",
-        left: "0",
-        right: "0",
-        bottom: "0",
-        borderRadius: "0",
-      });
+    function applyResponsiveIframeSize() {
+      if (window.innerWidth <= 480) {
+        Object.assign(iframe.style, {
+          width: "100vw",
+          height: "100dvh",
+          left: "0",
+          right: "0",
+          bottom: "0",
+          borderRadius: "0",
+        });
+      } else {
+        Object.assign(iframe.style, {
+          width: "365px",
+          height: "547px",
+          left: "",
+          right: "",
+          bottom: bottom + "px",
+          borderRadius: "28px",
+        });
+
+        if (position === "left") {
+          iframe.style.left = side + "px";
+        } else {
+          iframe.style.right = side + "px";
+        }
+      }
     }
+
+    applyResponsiveIframeSize();
+    window.addEventListener("resize", applyResponsiveIframeSize);
 
     document.body.appendChild(iframe);
 

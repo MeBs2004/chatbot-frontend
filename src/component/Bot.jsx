@@ -98,6 +98,26 @@ const LAUNCHER_STYLES = `
   .nuform-launcher-pulse-ring { animation: nuformLauncherPulseRing 2.6s ease-out infinite; }
   .nuform-bubble-enter        { animation: nuformBubbleEnter 0.3s ease forwards; }
   .nuform-bubble-exit      { animation: nuformBubbleExit 0.3s ease forwards; }
+
+  @media (max-width: 480px) {
+    .nuform-bot-panel {
+      bottom: 0 !important;
+      right: 0 !important;
+      width: 100vw !important;
+      max-width: 100vw !important;
+      height: 100dvh !important;
+      border-radius: 0 !important;
+    }
+
+    .nuform-launcher-wrap {
+      bottom: 20px !important;
+      right: 16px !important;
+    }
+
+    .nuform-launcher-bubble {
+      max-width: calc(100vw - 90px) !important;
+    }
+  }
 `;
 
 function Bot({ embed = false }) {
@@ -676,7 +696,7 @@ function Bot({ embed = false }) {
 
       {/* Floating Launcher */}
       {!embed && !openBot && (
-        <div className="fixed bottom-5 right-5 z-50 nuform-launcher-float">
+        <div className="nuform-launcher-wrap fixed bottom-5 right-5 z-50 nuform-launcher-float">
           {/* AI Greeting Bubble */}
           {bubbleStage !== "idle" && (
             <div
@@ -685,7 +705,7 @@ function Bot({ embed = false }) {
                 ${bubbleStage === "hiding" ? "nuform-bubble-exit" : "nuform-bubble-enter"}
               `}
             >
-              <div className="relative flex items-start gap-[6px] bg-white border border-gray-200 rounded-xl shadow-[0_6px_20px_rgba(0,0,0,0.1)] pl-[8px] pr-3 py-[7px] min-w-[150px] max-w-[195px]">
+              <div className="nuform-launcher-bubble relative flex items-start gap-[6px] bg-white border border-gray-200 rounded-xl shadow-[0_6px_20px_rgba(0,0,0,0.1)] pl-[8px] pr-3 py-[7px] min-w-[150px] max-w-[195px]">
                 <img
                   src={logo}
                   alt=""
@@ -781,6 +801,7 @@ function Bot({ embed = false }) {
       {(openBot || embed) && (
         <div
           className={`
+      nuform-bot-panel
       ${
         embed
           ? "w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc]"
