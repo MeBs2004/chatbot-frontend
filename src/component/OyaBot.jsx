@@ -933,7 +933,36 @@ function OyaBot({ embed = false }) {
     openBotTimerRef.current = setTimeout(() => inputRef.current?.focus(), 320);
   }, []);
 
-  if (!company || !theme) return null;
+  if (!company || !theme) {
+    if (!embed && !openBot) return null;
+
+    // Show an instant branded loading shell instead of a blank iframe while
+    // company config loads, so the panel appears to open immediately even
+    // if the backend request is slow (e.g. a cold-started server).
+    return (
+      <div
+        className={`
+          bot-panel
+          ${
+            embed
+              ? "w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc]"
+              : "fixed bottom-5 right-5 w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"
+          }
+          bg-white
+          overflow-hidden
+          flex
+          items-center
+          justify-center
+          z-50
+        `}
+      >
+        <div
+          className="w-[34px] h-[34px] rounded-full border-4 border-[#f3d6b6] animate-spin"
+          style={{ borderTopColor: OYA_DARK }}
+        />
+      </div>
+    );
+  }
 
   // ── UI ────────────────────────────────────────────────────────────────────────
   return (
