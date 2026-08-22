@@ -9,6 +9,10 @@ import logo1 from "../assets/logo1.png";
 
 import useSpeechRecognition from "../hooks/useSpeechRecognition";
 import useTextToSpeech from "../hooks/useTextToSpeech";
+import {
+  primeNotificationSound,
+  playBotReplySound,
+} from "../utils/notificationSound";
 
 import {
   FaTimes,
@@ -497,6 +501,8 @@ function Bot({ embed = false }) {
       (!messageText.trim() && !selectedFile)
     )
       return;
+
+    primeNotificationSound();
     // ==========================
     // SAVE EMAIL
     // ==========================
@@ -540,6 +546,7 @@ function Bot({ embed = false }) {
           sender: "bot",
         },
       ]);
+      playBotReplySound();
 
       // Clear everything
       setInput("");
@@ -634,6 +641,8 @@ function Bot({ embed = false }) {
 
           return updatedMessages;
         });
+
+        playBotReplySound();
       }
     } catch (error) {
       console.log("Message Error:", error);

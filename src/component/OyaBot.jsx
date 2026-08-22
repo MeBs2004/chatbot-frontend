@@ -13,6 +13,10 @@ import logo1 from "../assets/oya-logo1.png";
 import useSpeechRecognition from "../hooks/useSpeechRecognition";
 import useTextToSpeech from "../hooks/useTextToSpeech";
 import {
+  primeNotificationSound,
+  playBotReplySound,
+} from "../utils/notificationSound";
+import {
   FaTimes,
   FaPaperPlane,
   FaPaperclip,
@@ -759,6 +763,7 @@ function OyaBot({ embed = false }) {
       const messageText = (customMessage || input).trim();
       if ((!messageText && !selectedFile) || loading || !isOnline) return;
 
+      primeNotificationSound();
       setFailedMessage(null);
 
       if (
@@ -791,6 +796,7 @@ function OyaBot({ embed = false }) {
             sender: "bot",
           },
         ]);
+        playBotReplySound();
         setInput("");
         return;
       }
@@ -849,6 +855,8 @@ function OyaBot({ embed = false }) {
           }
           return next;
         });
+
+        playBotReplySound();
 
         // Speak bot response
         // speak(botText, language === "Hindi" ? "hi-IN" : "en-IN");
