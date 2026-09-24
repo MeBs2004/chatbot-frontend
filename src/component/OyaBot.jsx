@@ -36,6 +36,11 @@ import {
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+// Fallback contact details (used when the company record has none)
+const OYA_PHONE = "+918796885861";
+const OYA_WHATSAPP = "918796885861";
+const OYA_EMAIL = "care@gemkara.com";
+
 const OYA_DARK = "#5E0F28";
 const OYA_MID = "#8C2346";
 const OYA_GOLD = "#B8865B";
@@ -1409,7 +1414,7 @@ ${
                   {/* Contact Buttons */}
                   <div className="flex gap-2 mb-5">
                     <a
-                      href={`tel:${company.contact.phone}`}
+                      href={`tel:${(company?.contact?.phone || OYA_PHONE).replace(/[^\d+]/g, "")}`}
                       aria-label="Call OYA"
                       style={{ backgroundColor: OYA_DARK }}
                       className="
@@ -1426,7 +1431,7 @@ ${
                     </a>
 
                     <a
-                      href={`https://wa.me/${company.contact.whatsapp}`}
+                      href={`https://wa.me/${(company?.contact?.whatsapp || OYA_WHATSAPP).replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Chat on WhatsApp"
@@ -1444,7 +1449,7 @@ ${
                     </a>
 
                     <a
-                      href={`mailto:${company.contact.email}`}
+                      href={`mailto:${company?.contact?.email || OYA_EMAIL}`}
                       aria-label="Email OYA"
                       style={{ backgroundColor: OYA_GOLD }}
                       className="
