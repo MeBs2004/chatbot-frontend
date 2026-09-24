@@ -946,6 +946,28 @@ function OyaBot({ embed = false }) {
     openBotTimerRef.current = setTimeout(() => inputRef.current?.focus(), 320);
   }, []);
 
+  // mailto links often do nothing inside the widget iframe or when no mail
+  // app is set up, so open Gmail compose if the mail app didn't take focus.
+  const handleEmailClick = useCallback(() => {
+    const email = company?.contact?.email || OYA_EMAIL;
+    let mailAppOpened = false;
+    const onBlur = () => {
+      mailAppOpened = true;
+    };
+    window.addEventListener("blur", onBlur, { once: true });
+
+    setTimeout(() => {
+      window.removeEventListener("blur", onBlur);
+      if (!mailAppOpened && document.hasFocus()) {
+        window.open(
+          `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}`,
+          "_blank",
+          "noopener,noreferrer",
+        );
+      }
+    }, 1200);
+  }, [company]);
+
   if (!company || !theme) {
     if (!embed && !openBot) return null;
 
@@ -1450,6 +1472,8 @@ ${
 
                     <a
                       href={`mailto:${company?.contact?.email || OYA_EMAIL}`}
+                      target="_top"
+                      onClick={handleEmailClick}
                       aria-label="Email OYA"
                       style={{ backgroundColor: OYA_GOLD }}
                       className="
