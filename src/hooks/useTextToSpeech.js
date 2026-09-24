@@ -90,7 +90,6 @@ export default function useTextToSpeech() {
         utterance.rate = 0.82;
         utterance.pitch = 1;
       }
-
       // =========================
       // English Voices
       // =========================
