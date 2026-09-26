@@ -1,5 +1,11 @@
 import axios from "axios";
 
+// Phase 14 — none of this file's axios calls had a timeout, so a
+// hung backend/network request could leave the widget waiting
+// indefinitely with no visible failure. 60s comfortably covers a
+// real (if slow) AI reply without cutting off legitimate responses.
+axios.defaults.timeout = 60000;
+
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Change this to the company you want to run

@@ -177,6 +177,8 @@
         : ""
     }
 
+    @media(max-width:768px){
+    .nuformly-launcher-entrance{bottom: 70px !important;}}
     .nuformly-launcher-entrance { animation: nuformlyLauncherEntrance 0.6s ease-out forwards; }
     .nuformly-launcher-float    { animation: nuformlyLauncherFloat 4.5s ease-in-out infinite; }
     .nuformly-launcher-breathe  { animation: nuformlyLauncherBreathe 5.5s ease-in-out infinite; }
