@@ -6,13 +6,6 @@ import React, {
   useState,
 } from "react";
 import axios from "axios";
-
-// Phase 14 — none of this file's axios calls had a timeout, so a
-// hung backend/network request could leave the widget waiting
-// indefinitely with no visible failure. 60s comfortably covers a
-// real (if slow) AI reply without cutting off legitimate responses.
-axios.defaults.timeout = 60000;
-
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import logo from "../assets/oya-logo.png";
@@ -59,26 +52,6 @@ const LAUNCHER_LUX_ACCENT = "#D4AF37";
 const LAUNCHER_LUX_SOFT_GOLD = "#E7C873";
 const LAUNCHER_LUX_CREAM = "#FFFDF8";
 const LAUNCHER_LUX_TEXT = "#2E2E2E";
-
-// Public Widget Config Integration — a safe, minimal shape used only
-// when bot/v1/company fails or times out. Before this fix, a failed
-// fetch left `company` (and therefore `theme`) permanently null, which
-// blocked the launcher from ever rendering at all (see the `!company ||
-// !theme` gate below) — a real, silent, total-widget-outage bug. This
-// keeps every existing `company.X`/`theme.X` read in this file safe
-// without touching each call site, using the same brand colors this
-// file already hardcodes elsewhere as literals.
-const FALLBACK_COMPANY = {
-  theme: {
-    primaryColor: OYA_DARK,
-    backgroundColor: "#fffaf5",
-    botBubbleColor: "#fdf3e7",
-    textColor: "#2e2e2e",
-  },
-  branding: { botAvatar: null },
-  chatbot: { chatbotName: "OYA Assistant", botName: "OYA" },
-  contact: {},
-};
 
 const OYA_SERVICE_CHIPS = [
   "Natural Gemstones",
@@ -451,58 +424,15 @@ function OyaBot({ embed = false }) {
 
   const { speak, stop, speaking } = useTextToSpeech();
 
-  // Public Widget Config Integration — the normalized, public-safe
-  // Chatbot.config for this company's chatbot, from the same bot/v1/company
-  // response (no second round trip, no new identity model). `null` means
-  // "use company.theme / the hardcoded OYA defaults, exactly as before."
-  const [widgetConfig, setWidgetConfig] = useState(null);
-  const [resolvedChatbotId, setResolvedChatbotId] = useState(null);
-  const appliedDefaultLanguageRef = useRef(false);
-
   const theme = useMemo(() => company?.theme, [company]);
-  // Merged theme — Chatbot.config takes priority, company.theme (legacy)
-  // is the fallback, then the hardcoded OYA brand literals. Every existing
-  // theme.X read in this file is unaffected until config/theme actually
-  // resolve, so a company with neither renders exactly as before.
-  const mergedTheme = useMemo(
-    () => ({
-      primaryColor:
-        widgetConfig?.chatWindow?.primaryColor || theme?.primaryColor || OYA_DARK,
-      backgroundColor:
-        widgetConfig?.chatWindow?.backgroundColor || theme?.backgroundColor,
-      // Config has no dedicated "bot bubble" field (matches the admin
-      // Studio's own ChatWidgetRenderer, which hardcodes this too) — stays
-      // legacy-only, company.theme.botBubbleColor or undefined.
-      botBubbleColor: theme?.botBubbleColor,
-      textColor: widgetConfig?.chatWindow?.textColor || theme?.textColor,
-    }),
-    [widgetConfig, theme],
-  );
-  // Public Widget Config Integration — this was previously computed but
-  // never rendered anywhere (header always used the hardcoded `logo1`
-  // import). Now the header's actual avatar, with `logo1` as the same
-  // fallback it always used.
   const botAvatar = useMemo(
-    () => widgetConfig?.chatWindow?.botAvatar || company?.branding?.botAvatar || logo1,
-    [company, widgetConfig],
+    () => company?.branding?.botAvatar || logo,
+    [company],
   );
   const canSend = useMemo(
     () => Boolean(input.trim()) && !loading && isOnline,
     [input, loading, isOnline],
   );
-
-  // Config-driven header/welcome copy — company.chatbot.* (legacy) is the
-  // fallback, matching mergedTheme's same priority order.
-  const headerTitle =
-    widgetConfig?.chatWindow?.botName || company?.chatbot?.chatbotName || "OYA Assistant";
-  const botNameForCopy =
-    widgetConfig?.chatWindow?.botName || company?.chatbot?.botName || "OYA";
-  const headerSubtitle = widgetConfig?.chatWindow?.companyName || "";
-  const welcomeMessageEN = widgetConfig?.chatWindow?.welcomeMessage || "";
-  const showBranding = widgetConfig?.chatWindow?.showBranding !== false;
-  const showGreeting = widgetConfig?.launcher?.showGreeting !== false;
-  const showNotificationBadge = widgetConfig?.launcher?.showNotificationBadge !== false;
-  const typingIndicatorEnabled = widgetConfig?.behavior?.typingIndicator !== false;
 
   const mdUserComponents = useMemo(() => buildMarkdownComponents("user"), []);
   const mdBotComponents = useMemo(() => buildMarkdownComponents("bot"), []);
@@ -536,110 +466,23 @@ function OyaBot({ embed = false }) {
     const controller = new AbortController();
     const load = async () => {
       try {
-        // Scoped, shorter timeout than the file's 60s AI-reply default —
-        // this is a lightweight lookup the launcher blocks on, not an AI
-        // response, so a slow/dead backend shouldn't leave visitors staring
-        // at nothing for a minute.
         const res = await axios.get(`${BACKEND_URL}bot/v1/company`, {
           headers: { "x-company-id": COMPANY_ID },
           signal: controller.signal,
-          timeout: 8000,
         });
-        if (!mountedRef.current) return;
-
-        if (res.data.success) {
+        if (mountedRef.current && res.data.success)
           setCompany(res.data.company);
-          setWidgetConfig(
-            res.data.widgetConfig?.available ? res.data.widgetConfig.config : null,
-          );
-          if (res.data.chatbotId) setResolvedChatbotId(res.data.chatbotId);
-        } else {
-          setCompany(FALLBACK_COMPANY);
-        }
       } catch (err) {
-        if (axios.isCancel(err)) return;
-
-        console.error(
-          "Company Load Error:",
-          err.response?.data || err.message,
-        );
-
-        // Public Widget Config Integration fix — previously this left
-        // `company` (and `theme`) permanently null on any failure, which
-        // silently blocks the launcher from ever rendering (see the
-        // `!company || !theme` gate below). Falling back to a safe,
-        // hardcoded-brand shape means a backend hiccup degrades to "the
-        // widget looks like it always did," not "the widget vanishes."
-        if (mountedRef.current) setCompany(FALLBACK_COMPANY);
+        if (!axios.isCancel(err))
+          console.error(
+            "Company Load Error:",
+            err.response?.data || err.message,
+          );
       }
     };
     load();
     return () => controller.abort();
   }, [BACKEND_URL, COMPANY_ID]);
-
-  // Phase 15 — live config updates, purely additive on top of the REST
-  // fetch above (same guarantee as Bot.jsx's equivalent effect): if
-  // this never connects, the widget already has a fully correct
-  // config from the REST call and simply never gets a live update
-  // until the visitor's next page load. Only ever touches
-  // `widgetConfig` (the visual layer).
-  useEffect(() => {
-    if (!resolvedChatbotId) return;
-
-    let socket;
-    let cancelled = false;
-
-    import("socket.io-client")
-      .then(({ io }) => {
-        if (cancelled) return;
-        socket = io(`${BACKEND_URL}widget`, {
-          auth: { chatbotId: resolvedChatbotId },
-          transports: ["websocket", "polling"],
-          reconnectionDelay: 1000,
-          reconnectionDelayMax: 8000,
-        });
-        socket.on("domain:event", (evt) => {
-          if (evt.type === "chatbot.config.updated" && evt.available) {
-            setWidgetConfig(evt.config || null);
-          }
-        });
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-      socket?.disconnect();
-    };
-  }, [resolvedChatbotId, BACKEND_URL]);
-
-  // Applies config.language.defaultLanguage exactly once, the first time
-  // it becomes available — never overrides a language the visitor already
-  // switched to mid-conversation.
-  useEffect(() => {
-    const defaultLanguage = widgetConfig?.language?.defaultLanguage;
-
-    if (
-      defaultLanguage &&
-      !appliedDefaultLanguageRef.current &&
-      ["English", "Hindi"].includes(defaultLanguage)
-    ) {
-      appliedDefaultLanguageRef.current = true;
-      setLanguage(defaultLanguage);
-    }
-  }, [widgetConfig]);
-
-  // Phase 20 fix — behavior.autoOpen existed in the Studio and already
-  // worked for Bot.jsx, but was never wired here at all: OyaBot never
-  // auto-opened regardless of the setting. Same opt-in-only, embed-safe
-  // behavior as Bot.jsx.
-  useEffect(() => {
-    if (embed || !widgetConfig?.behavior?.autoOpen) return;
-
-    const delayMs = Math.max(0, Number(widgetConfig.behavior.autoOpenDelay) || 0) * 1000;
-    const timer = setTimeout(() => setOpenBot(true), delayMs);
-
-    return () => clearTimeout(timer);
-  }, [embed, widgetConfig]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -1166,7 +1009,7 @@ function OyaBot({ embed = false }) {
         <div className="fab-wrap fixed bottom-5 right-5 z-50 oya-launcher-entrance">
           <div className="relative oya-launcher-float">
             {/* AI Greeting Bubble */}
-            {showGreeting && launcherBubbleStage !== "idle" && (
+            {launcherBubbleStage !== "idle" && (
               <div
                 className={`
                   absolute bottom-[77px] right-0
@@ -1326,7 +1169,7 @@ function OyaBot({ embed = false }) {
               </div>
 
               {/* Notification Dot */}
-              {showNotificationBadge && launcherBubbleStage !== "idle" && (
+              {launcherBubbleStage !== "idle" && (
                 <span
                   className="absolute top-0 right-0 w-[12px] h-[12px] rounded-full border border-white animate-pulse"
                   style={{ backgroundColor: LAUNCHER_LUX_ACCENT }}
@@ -1343,7 +1186,7 @@ function OyaBot({ embed = false }) {
           role="dialog"
           aria-label="OYA Jewellery Assistant Chat"
           aria-modal="true"
-          style={{ background: mergedTheme.backgroundColor }}
+          style={{ background: theme.backgroundColor }}
           className={`
     bot-panel
 
@@ -1415,7 +1258,7 @@ ${
                 "
               >
                 <img
-                  src={botAvatar}
+                  src={logo1}
                   alt="OYA logo"
                   className="w-[34px] h-[38px] object-cover rounded-[8px]"
                 />
@@ -1423,7 +1266,7 @@ ${
 
               <div>
                 <h2 className="font-semibold text-[15px] leading-none whitespace-nowrap">
-                  {headerTitle}
+                  {company.chatbot.chatbotName}
                 </h2>
                 <div className="flex items-center gap-2 mt-[5px]">
                   <span
@@ -1434,7 +1277,7 @@ ${
                     className="w-[6px] h-[6px] rounded-full animate-pulse"
                   />
                   <p className="text-[11px] text-[#f3d6b6] leading-none">
-                    {headerSubtitle || "Online · Always ready"}
+                    Online · Always ready
                   </p>
                 </div>
               </div>
@@ -1523,8 +1366,8 @@ ${
                 <div className="fade-up">
                   <div
                     style={{
-                      background: mergedTheme.botBubbleColor,
-                      color: mergedTheme.textColor,
+                      background: theme.botBubbleColor,
+                      color: theme.textColor,
                     }}
                     className="
                       rounded-[18px]
@@ -1534,69 +1377,28 @@ ${
                       mb-5
                     "
                   >
-                    {/* <div className="flex items-center gap-[9px] mb-[11px]">
-                      <img
-                        src={logo}
-                        alt="OYA"
-                        className="w-[30px] h-[35px] rounded-full object-cover"
-                      />
-                      <div>
-                        <p className="font-semibold text-[13px] leading-none">
-                          {company.chatbot.botName}
-                        </p>
-                        <p className="text-[10px] opacity-50 mt-[3px] leading-none">
-                          OYA by Gemkara
-                        </p>
-                      </div>
-                    </div> */}
-
                     {language === "Hindi" ? (
                       <p className="text-[13.5px] leading-[1.72]">
-                        👋 नमस्ते! मैं {botNameForCopy} हूँ। OYA by
+                        👋 नमस्ते! मैं {company.chatbot.botName} हूँ। OYA by
                         Gemkara में आपका स्वागत है। मैं आपकी सहायता कर सकती हूँ:
                         • प्राकृतिक रत्न • प्रीमियम ज्वेलरी • व्यक्तिगत सुझाव •
                         अपॉइंटमेंट बुकिंग • ऑर्डर सहायता। आज मैं आपकी किस प्रकार
                         सहायता कर सकती हूँ?
                       </p>
-                    ) : welcomeMessageEN ? (
-                      <p className="text-[13.5px] leading-[1.72]">{welcomeMessageEN}</p>
                     ) : (
                       <p className="text-[13.5px] leading-[1.72]">
                         👋 Welcome to OYA by Gemkara. I'm{" "}
-                        {botNameForCopy}, your luxury jewellery
+                        {company.chatbot.botName}, your luxury jewellery
                         assistant. I can help you with: • Natural Gemstones •
                         Premium Jewellery • Personalized Recommendations • Book
                         Appointments • Customer Support. How may I assist you
                         today?
                       </p>
                     )}
-
-                    {/* <div className="flex flex-wrap gap-[6px] mt-[13px]">
-                      {OYA_SERVICE_CHIPS.map((chip) => (
-                        <span
-                          key={chip}
-                          style={{
-                            color: OYA_GOLD,
-                            borderColor: `${OYA_GOLD}50`,
-                          }}
-                          className="
-                            px-[10px] py-[4px]
-                            rounded-full border
-                            text-[10.5px] font-medium
-                            bg-white/55
-                          "
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div> */}
                   </div>
 
-                  {/* Contact Buttons — guarded (Public Widget Config
-                      Integration): FALLBACK_COMPANY.contact has no phone/
-                      whatsapp/email, so these must not assume they exist. */}
+                  {/* Contact Buttons */}
                   <div className="flex gap-2 mb-5">
-                    {company.contact?.phone && (
                     <a
                       href={`tel:${(company?.contact?.phone || OYA_PHONE).replace(/[^\d+]/g, "")}`}
                       aria-label="Call OYA"
@@ -1613,9 +1415,7 @@ ${
                       <FaPhoneAlt size={13} />
                       <span>Call</span>
                     </a>
-                    )}
 
-                    {company.contact?.whatsapp && (
                     <a
                       href={`https://wa.me/${(company?.contact?.whatsapp || OYA_WHATSAPP).replace(/\D/g, "")}`}
                       target="_blank"
@@ -1633,9 +1433,7 @@ ${
                       <FaWhatsapp size={14} />
                       <span>WhatsApp</span>
                     </a>
-                    )}
 
-                    {company.contact?.email && (
                     <a
                       href={`mailto:${company?.contact?.email || OYA_EMAIL}`}
                       target="_top"
@@ -1654,7 +1452,6 @@ ${
                       <FaEnvelope size={13} />
                       <span>Email</span>
                     </a>
-                    )}
                   </div>
                 </div>
               )}
@@ -1670,7 +1467,7 @@ ${
                 >
                   {msg.sender === "bot" && (
                     <img
-                      src={botAvatar}
+                      src={logo}
                       alt="OYA Bot"
                       aria-hidden="true"
                       className="
@@ -1691,10 +1488,10 @@ ${
                       style={{
                         backgroundColor:
                           msg.sender === "user"
-                            ? mergedTheme.primaryColor
-                            : mergedTheme.botBubbleColor,
+                            ? theme.primaryColor
+                            : theme.botBubbleColor,
                         color:
-                          msg.sender === "user" ? "#ffffff" : mergedTheme.textColor,
+                          msg.sender === "user" ? "#ffffff" : theme.textColor,
                       }}
                       className={`
                         px-[15px] py-[12px]
@@ -1776,16 +1573,16 @@ ${
               ))}
 
               {/* Loading */}
-              {loading && typingIndicatorEnabled && (
+              {loading && (
                 <div className="flex mb-4 msg-enter justify-start">
                   <img
-                    src={botAvatar}
+                    src={logo}
                     alt=""
                     aria-hidden="true"
                     className="w-[32px] h-[32px] rounded-full object-cover mr-2 mt-1 flex-shrink-0"
                   />
                   <div
-                    style={{ background: mergedTheme.botBubbleColor }}
+                    style={{ background: theme.botBubbleColor }}
                     className="
                       inline-flex items-center gap-2
                       border border-[#d7e7dc]
@@ -1826,8 +1623,8 @@ ${
                       onClick={() => handleSendMessage(item)}
                       aria-label={`Ask: ${item}`}
                       style={{
-                        background: mergedTheme.botBubbleColor,
-                        color: mergedTheme.textColor,
+                        background: theme.botBubbleColor,
+                        color: theme.textColor,
                       }}
                       className="
                         oya-ctrl
@@ -2073,7 +1870,6 @@ ${
               </button>
             </div>
 
-            {showBranding && (
             <div className="text-center text-[11px] text-[#9ca3af] mt-3">
               Powered by
               <span style={{ color: OYA_DARK }} className="font-semibold">
@@ -2082,7 +1878,6 @@ ${
               </span>
               &nbsp;&nbsp;nuformsocial.com
             </div>
-            )}
           </footer>
         </div>
       )}
