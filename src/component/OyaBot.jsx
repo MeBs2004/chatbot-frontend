@@ -43,6 +43,11 @@ import {
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+// Fallback contact details (used when the company record has none)
+const OYA_PHONE = "+918796885861";
+const OYA_WHATSAPP = "918796885861";
+const OYA_EMAIL = "care@gemkara.com";
+
 const OYA_DARK = "#5E0F28";
 const OYA_MID = "#8C2346";
 const OYA_GOLD = "#B8865B";
@@ -1098,6 +1103,28 @@ function OyaBot({ embed = false }) {
     openBotTimerRef.current = setTimeout(() => inputRef.current?.focus(), 320);
   }, []);
 
+  // mailto links often do nothing inside the widget iframe or when no mail
+  // app is set up, so open Gmail compose if the mail app didn't take focus.
+  const handleEmailClick = useCallback(() => {
+    const email = company?.contact?.email || OYA_EMAIL;
+    let mailAppOpened = false;
+    const onBlur = () => {
+      mailAppOpened = true;
+    };
+    window.addEventListener("blur", onBlur, { once: true });
+
+    setTimeout(() => {
+      window.removeEventListener("blur", onBlur);
+      if (!mailAppOpened && document.hasFocus()) {
+        window.open(
+          `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}`,
+          "_blank",
+          "noopener,noreferrer",
+        );
+      }
+    }, 1200);
+  }, [company]);
+
   if (!company || !theme) {
     if (!embed && !openBot) return null;
 
@@ -1571,7 +1598,7 @@ ${
                   <div className="flex gap-2 mb-5">
                     {company.contact?.phone && (
                     <a
-                      href={`tel:${company.contact.phone}`}
+                      href={`tel:${(company?.contact?.phone || OYA_PHONE).replace(/[^\d+]/g, "")}`}
                       aria-label="Call OYA"
                       style={{ backgroundColor: OYA_DARK }}
                       className="
@@ -1590,7 +1617,7 @@ ${
 
                     {company.contact?.whatsapp && (
                     <a
-                      href={`https://wa.me/${company.contact.whatsapp}`}
+                      href={`https://wa.me/${(company?.contact?.whatsapp || OYA_WHATSAPP).replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label="Chat on WhatsApp"
@@ -1610,7 +1637,9 @@ ${
 
                     {company.contact?.email && (
                     <a
-                      href={`mailto:${company.contact.email}`}
+                      href={`mailto:${company?.contact?.email || OYA_EMAIL}`}
+                      target="_top"
+                      onClick={handleEmailClick}
                       aria-label="Email OYA"
                       style={{ backgroundColor: OYA_GOLD }}
                       className="
