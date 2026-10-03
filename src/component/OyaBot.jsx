@@ -570,7 +570,15 @@ function OyaBot({ embed = false }) {
       }
     };
     save();
-    return () => controller.abort();
+
+    // Admin Live View heartbeat — see Bot.jsx's identical comment.
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState === "visible") save();
+    }, 25000);
+    return () => {
+      controller.abort();
+      clearInterval(heartbeat);
+    };
   }, [BACKEND_URL, COMPANY_ID]);
 
   useEffect(() => {

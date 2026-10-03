@@ -482,7 +482,7 @@ function Bot({ embed = false }) {
           localStorage.setItem("visitorId", visitorId);
         }
 
-        const response = await axios.post(
+        await axios.post(
           `${BACKEND_URL}bot/v1/visitor`,
           {
             visitorId,
@@ -498,8 +498,6 @@ function Bot({ embed = false }) {
             },
           },
         );
-
-        console.log(response.data);
       } catch (error) {
         console.log("Visitor Tracking Error");
         console.log(error);
@@ -507,6 +505,16 @@ function Bot({ embed = false }) {
     };
 
     saveVisitor();
+
+    // Admin Live View heartbeat: re-saves (same endpoint, same shape)
+    // every 25s so Visitor.lastVisit stays fresh while this tab is
+    // actually open, instead of only once per page load. Paused when
+    // the tab isn't visible so a backgrounded tab doesn't keep pinging.
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState === "visible") saveVisitor();
+    }, 25000);
+
+    return () => clearInterval(heartbeat);
   }, []);
 
   // Public Widget Config Integration — fetch this company's normalized
