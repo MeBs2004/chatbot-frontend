@@ -1,12 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 
-// Phase 14 — none of this file's axios calls had a timeout, so a
-// hung backend/network request could leave the widget waiting
-// indefinitely with no visible failure. 60s comfortably covers a
-// real (if slow) AI reply without cutting off legitimate responses.
-axios.defaults.timeout = 60000;
-
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -69,38 +63,6 @@ function pickNextLauncherMessage(lastMessage) {
   } while (next === lastMessage);
 
   return next;
-}
-
-// Public Widget Config Integration — this widget always self-identified
-// as "nuform-social" regardless of how it was embedded. window.NUFORMLY_CONFIG
-// is set by Embed.jsx from the real ?companyId= query param (see OyaBot.jsx,
-// which already reads it); falling back to the historical literal keeps
-// every existing standalone/dev mount working exactly as before.
-const COMPANY_ID =
-  (typeof window !== "undefined" && window.NUFORMLY_CONFIG?.companyId) ||
-  "nuform-social";
-
-const LAUNCHER_SIZE_PX = { small: 46, medium: 55, large: 64 };
-const WINDOW_SIZE_PX = {
-  small: { width: 320, height: 460 },
-  medium: { width: 365, height: 547 },
-  large: { width: 400, height: 600 },
-};
-const WINDOW_RADIUS_PX = { small: 14, medium: 22, large: 28 };
-
-// Darkens a #rrggbb hex color by `factor` (0-1, lower = darker) — used
-// only to derive the header's gradient start stop from an admin-picked
-// primaryColor. Never runs when no config is loaded, so the original
-// hardcoded "#0d5537 -> #067647" gradient is pixel-identical until an
-// admin actually saves a custom color.
-function darkenHex(hex, factor) {
-  const m = /^#([0-9a-f]{6})$/i.exec(hex || "");
-  if (!m) return hex;
-  const num = parseInt(m[1], 16);
-  const r = Math.round(((num >> 16) & 0xff) * factor);
-  const g = Math.round(((num >> 8) & 0xff) * factor);
-  const b = Math.round((num & 0xff) * factor);
-  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
 const LAUNCHER_STYLES = `
@@ -188,16 +150,6 @@ function Bot({ embed = false }) {
   const [openBot, setOpenBot] = useState(embed ? true : false);
 
   const [animateBot, setAnimateBot] = useState(false);
-
-  // Public Widget Config Integration — the normalized, public-safe
-  // Chatbot.config for this company's chatbot, when exactly one resolves
-  // and it isn't paused/offline. `null` means "use the hardcoded defaults
-  // below, exactly as before this integration" — never a crash, never a
-  // blank widget. Purely a visual/theming layer; every existing business
-  // API call (suggestions/visitor/message/email) is untouched.
-  const [widgetConfig, setWidgetConfig] = useState(null);
-  const [resolvedChatbotId, setResolvedChatbotId] = useState(null);
-  const appliedDefaultLanguageRef = useRef(false);
 
   const messagesEndRef = useRef(null);
 
@@ -316,6 +268,12 @@ function Bot({ embed = false }) {
     };
   }, [embed, openBot]);
 
+  const axiosConfig = {
+    headers: {
+      "x-company-id": "nuform-social",
+    },
+  };
+
   // Live transcript -> input
   useEffect(() => {
     setInput(transcript);
@@ -395,20 +353,6 @@ function Bot({ embed = false }) {
     });
   }, [messages, loading]);
 
-  // behavior.autoOpen — opt-in only (default false = today's exact
-  // behavior: launcher stays closed until clicked). Never fires in embed
-  // mode, which already opens immediately for its own reasons.
-  // Phase 20 fix — autoOpenDelay was previously saved by the Studio but
-  // silently ignored here (always a hardcoded 1.5s); now genuinely used.
-  useEffect(() => {
-    if (embed || !widgetConfig?.behavior?.autoOpen) return;
-
-    const delayMs = Math.max(0, Number(widgetConfig.behavior.autoOpenDelay) || 0) * 1000;
-    const timer = setTimeout(() => setOpenBot(true), delayMs);
-
-    return () => clearTimeout(timer);
-  }, [embed, widgetConfig]);
-
   // Popup Animation
   useEffect(() => {
     if (embed) return;
@@ -452,7 +396,7 @@ function Bot({ embed = false }) {
             language,
           },
           headers: {
-            "x-company-id": COMPANY_ID,
+            "x-company-id": "nuform-social",
           },
         });
 
@@ -482,7 +426,7 @@ function Bot({ embed = false }) {
           localStorage.setItem("visitorId", visitorId);
         }
 
-        await axios.post(
+        const response = await axios.post(
           `${BACKEND_URL}bot/v1/visitor`,
           {
             visitorId,
@@ -494,10 +438,12 @@ function Bot({ embed = false }) {
           },
           {
             headers: {
-              "x-company-id": COMPANY_ID,
+              "x-company-id": "nuform-social",
             },
           },
         );
+
+        console.log(response.data);
       } catch (error) {
         console.log("Visitor Tracking Error");
         console.log(error);
@@ -505,134 +451,7 @@ function Bot({ embed = false }) {
     };
 
     saveVisitor();
-
-    // Admin Live View heartbeat: re-saves (same endpoint, same shape)
-    // every 25s so Visitor.lastVisit stays fresh while this tab is
-    // actually open, instead of only once per page load. Paused when
-    // the tab isn't visible so a backgrounded tab doesn't keep pinging.
-    const heartbeat = setInterval(() => {
-      if (document.visibilityState === "visible") saveVisitor();
-    }, 25000);
-
-    return () => clearInterval(heartbeat);
   }, []);
-
-  // Public Widget Config Integration — fetch this company's normalized
-  // Chatbot.config for theming only. Reuses the existing bot/v1/company
-  // endpoint (already public, already x-company-id-scoped) rather than a
-  // second identity model. Any failure (network, 404, ambiguous chatbot
-  // count, paused/offline) just leaves widgetConfig at its default `null`
-  // — the widget already renders fully and correctly with no config at
-  // all, so there is nothing to gracefully degrade *to* here.
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadWidgetConfig = async () => {
-      try {
-        const res = await axios.get(`${BACKEND_URL}bot/v1/company`, {
-          headers: { "x-company-id": COMPANY_ID },
-          signal: controller.signal,
-        });
-
-        if (res.data?.success && res.data.widgetConfig?.available) {
-          setWidgetConfig(res.data.widgetConfig.config || null);
-        }
-        if (res.data?.chatbotId) setResolvedChatbotId(res.data.chatbotId);
-      } catch (error) {
-        if (!axios.isCancel(error)) {
-          console.log("Widget Config Error:", error?.response?.data || error.message);
-        }
-      }
-    };
-
-    loadWidgetConfig();
-
-    return () => controller.abort();
-  }, [BACKEND_URL]);
-
-  // Phase 15 — live config updates. Purely additive on top of the REST
-  // fetch above: if this never connects (network policy, an unknown
-  // deployment constraint, etc.) the widget already has a fully
-  // correct config from the REST call and simply never gets a live
-  // update until the visitor's next page load — same as before this
-  // effect existed. Only ever touches `widgetConfig` (the visual
-  // layer); no business/API logic is affected.
-  useEffect(() => {
-    if (!resolvedChatbotId) return;
-
-    let socket;
-    let cancelled = false;
-
-    import("socket.io-client")
-      .then(({ io }) => {
-        if (cancelled) return;
-        socket = io(`${BACKEND_URL}widget`, {
-          auth: { chatbotId: resolvedChatbotId },
-          transports: ["websocket", "polling"],
-          reconnectionDelay: 1000,
-          reconnectionDelayMax: 8000,
-        });
-        socket.on("domain:event", (evt) => {
-          if (evt.type === "chatbot.config.updated" && evt.available) {
-            setWidgetConfig(evt.config || null);
-          }
-        });
-      })
-      .catch(() => {
-        // socket.io-client failing to load/connect is not fatal — see
-        // comment above.
-      });
-
-    return () => {
-      cancelled = true;
-      socket?.disconnect();
-    };
-  }, [resolvedChatbotId, BACKEND_URL]);
-
-  // Applies config.language.defaultLanguage exactly once, the first time
-  // it becomes available — never overrides a language the visitor already
-  // switched to mid-conversation.
-  useEffect(() => {
-    const defaultLanguage = widgetConfig?.language?.defaultLanguage;
-
-    if (
-      defaultLanguage &&
-      !appliedDefaultLanguageRef.current &&
-      ["English", "Hindi"].includes(defaultLanguage)
-    ) {
-      appliedDefaultLanguageRef.current = true;
-      setLanguage(defaultLanguage);
-    }
-  }, [widgetConfig]);
-
-  // Derived theme values — every one falls back to the exact literal
-  // this file already used before this integration, so a company with no
-  // resolved config (still loading, ambiguous chatbot count, or none)
-  // renders pixel-identical to the pre-integration widget.
-  const launcherCfg = widgetConfig?.launcher;
-  const windowCfg = widgetConfig?.chatWindow;
-  const behaviorCfg = widgetConfig?.behavior;
-
-  const primaryColor = windowCfg?.primaryColor || "#067647";
-  const headerGradientStart = windowCfg?.primaryColor
-    ? darkenHex(windowCfg.primaryColor, 0.82)
-    : "#0d5537";
-  const botName = windowCfg?.botName || "Nuform Social Assistant";
-  const companySubtitle = windowCfg?.companyName || "";
-  const botAvatarUrl = windowCfg?.botAvatar || "";
-  const welcomeMessageEN = windowCfg?.welcomeMessage || "";
-  const showBranding = windowCfg?.showBranding !== false;
-  const winSize = WINDOW_SIZE_PX[windowCfg?.size] || WINDOW_SIZE_PX.medium;
-  const winRadius =
-    WINDOW_RADIUS_PX[windowCfg?.borderRadius] ?? WINDOW_RADIUS_PX.large;
-  const launcherPositionLeft = launcherCfg?.position === "bottom-left";
-  const launcherPx = LAUNCHER_SIZE_PX[launcherCfg?.size] || LAUNCHER_SIZE_PX.medium;
-  const launcherShapeClass =
-    launcherCfg?.shape === "rounded-square" ? "rounded-2xl" : "rounded-full";
-  const showGreeting = launcherCfg?.showGreeting !== false;
-  const showNotificationBadge = launcherCfg?.showNotificationBadge !== false;
-  const typingIndicatorEnabled = behaviorCfg?.typingIndicator !== false;
-  const fontFamily = widgetConfig?.appearance?.font === "inter" ? "Inter, sans-serif" : undefined;
   // File Picker
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -707,7 +526,7 @@ function Bot({ embed = false }) {
           },
           {
             headers: {
-              "x-company-id": COMPANY_ID,
+              "x-company-id": "nuform-social",
             },
           },
         );
@@ -782,7 +601,7 @@ function Bot({ embed = false }) {
 
         res = await axios.post(`${BACKEND_URL}bot/v1/message`, formData, {
           headers: {
-            "x-company-id": COMPANY_ID,
+            "x-company-id": "nuform-social",
           },
         });
 
@@ -886,17 +705,12 @@ function Bot({ embed = false }) {
 
       {/* Floating Launcher */}
       {!embed && !openBot && (
-        <div
-          className={`nuform-launcher-wrap fixed bottom-5 z-50 nuform-launcher-float ${
-            launcherPositionLeft ? "left-5" : "right-5"
-          }`}
-          style={{ "--nfw-primary": primaryColor }}
-        >
+        <div className="nuform-launcher-wrap fixed bottom-5 right-5 z-50 nuform-launcher-float">
           {/* AI Greeting Bubble */}
-          {showGreeting && bubbleStage !== "idle" && (
+          {bubbleStage !== "idle" && (
             <div
               className={`
-                absolute bottom-[72px] ${launcherPositionLeft ? "left-0" : "right-0"}
+                absolute bottom-[72px] right-0
                 ${bubbleStage === "hiding" ? "nuform-bubble-exit" : "nuform-bubble-enter"}
               `}
             >
@@ -954,28 +768,39 @@ function Bot({ embed = false }) {
           )}
 
           {/* Pulse Ring */}
-          <span
-            className={`absolute inset-0 ${launcherShapeClass} nuform-launcher-pulse-ring pointer-events-none`}
-            style={{ background: primaryColor }}
-          />
+          <span className="absolute inset-0 rounded-full bg-[#067647] nuform-launcher-pulse-ring pointer-events-none" />
 
           <button
             onClick={() => setOpenBot(true)}
-            className={`relative ${launcherShapeClass} flex items-center justify-center text-white hover:scale-[1.08] hover:rotate-2 transition-transform duration-[250ms]`}
-            style={{ width: launcherPx, height: launcherPx }}
+            className="
+              relative
+              w-[55px]
+              h-[55px]
+              rounded-full
+              flex
+              items-center
+              justify-center
+              text-white
+              hover:scale-[1.08]
+              hover:rotate-2
+              transition-transform
+              duration-[250ms]
+            "
           >
-            <div
-              className={`nuform-launcher-breathe nuform-launcher-glow w-full h-full ${launcherShapeClass} flex items-center justify-center`}
-            >
+            <div className="nuform-launcher-breathe nuform-launcher-glow w-full h-full rounded-full flex items-center justify-center">
               <img
-                src={botAvatarUrl || logo1}
+                src={logo1}
                 alt="Logo"
-                className="w-full h-full object-contain"
+                className="
+                  w-[55px]
+                  h-[55px]
+                  object-contain
+                "
               />
             </div>
 
             {/* Notification Dot */}
-            {showNotificationBadge && bubbleStage !== "idle" && (
+            {bubbleStage !== "idle" && (
               <span className="absolute top-0 right-0 w-[11px] h-[11px] rounded-full bg-[#e36b0a] border border-white animate-pulse" />
             )}
           </button>
@@ -988,8 +813,8 @@ function Bot({ embed = false }) {
       nuform-bot-panel
       ${
         embed
-          ? "rounded-[var(--nfw-radius)] border border-[#dcdcdc]"
-          : `fixed bottom-5 ${launcherPositionLeft ? "left-5" : "right-5"} rounded-[var(--nfw-radius)] border border-[#dcdcdc] -m-3`
+          ? "w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc]"
+          : "fixed bottom-5 right-5 w-[365px] h-[547px] rounded-[28px] border border-[#dcdcdc] -m-3"
       }
 
       bg-[#f7f7f7]
@@ -1007,13 +832,6 @@ function Bot({ embed = false }) {
             : "opacity-0 translate-y-10 scale-95"
       }
     `}
-          style={{
-            width: winSize.width,
-            height: winSize.height,
-            "--nfw-radius": `${winRadius}px`,
-            "--nfw-primary": primaryColor,
-            fontFamily,
-          }}
         >
           {/* Header */}
           <div
@@ -1026,7 +844,7 @@ function Bot({ embed = false }) {
         text-white
       "
             style={{
-              background: `linear-gradient(135deg, ${headerGradientStart} 0%, ${primaryColor} 100%)`,
+              background: "linear-gradient(135deg, #0d5537 0%, #067647 100%)",
             }}
           >
             {/* Left */}
@@ -1044,7 +862,7 @@ function Bot({ embed = false }) {
           "
               >
                 <img
-                  src={botAvatarUrl || logo}
+                  src={logo}
                   alt="Logo"
                   className="
               w-[35px]
@@ -1057,7 +875,7 @@ function Bot({ embed = false }) {
 
               <div>
                 <h2 className="font-semibold text-[15px] leading-none whitespace-nowrap">
-                  {botName}
+                  Nuform Social Assistant
                 </h2>
 
                 <div className="flex items-center gap-2 mt-[5px]">
@@ -1073,7 +891,7 @@ function Bot({ embed = false }) {
                   ></span>
 
                   <p className="text-[11px] text-[#d5f5e3] leading-none">
-                    {companySubtitle || "Online · Always ready"}
+                    Online · Always ready
                   </p>
                 </div>
               </div>
@@ -1181,8 +999,6 @@ function Bot({ embed = false }) {
                     उच्च-ROI कैंपेन चलाना चाहते हों — मैं आपकी सहायता के लिए
                     यहाँ हूँ। आज आप किस उद्देश्य से आए हैं?
                   </>
-                ) : welcomeMessageEN ? (
-                  welcomeMessageEN
                 ) : (
                   <>
                     👋 Hey! I'm the Nuform Social Assistant. Whether you're
@@ -1207,10 +1023,10 @@ function Bot({ embed = false }) {
           py-2
           rounded-full
           text-white
+          bg-[#067647]
           text-[12px]
           font-medium
         "
-                  style={{ background: primaryColor }}
                 >
                   <FaPhoneAlt size={13} />
                   <span>Call</span>
@@ -1271,7 +1087,7 @@ function Bot({ embed = false }) {
               >
                 {msg.sender === "bot" && (
                   <img
-                    src={botAvatarUrl || logo}
+                    src={logo}
                     alt="Bot"
                     className="
             w-[32px]
@@ -1297,11 +1113,10 @@ function Bot({ embed = false }) {
           overflow-hidden
           ${
             msg.sender === "user"
-              ? "text-white rounded-[16px] rounded-br-[6px] shadow-md"
+              ? "bg-[#067647] text-white rounded-[16px] rounded-br-[6px] shadow-md"
               : "bg-[#edf5ef] text-[#2d2d2d] border border-[#d7e7dc] rounded-[18px] rounded-bl-[6px]"
           }
         `}
-                  style={msg.sender === "user" ? { background: primaryColor } : undefined}
                 >
                   {/* Image */}
                   {msg.file?.type?.startsWith("image/") && (
@@ -1389,7 +1204,7 @@ function Bot({ embed = false }) {
                     msg.file.type !==
                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" && (
                       <div className="flex items-center gap-3 bg-white border rounded-xl p-3 mb-3">
-                        <FaFile className="text-[var(--nfw-primary)] text-xl" />
+                        <FaFile className="text-[#067647] text-xl" />
 
                         <div className="flex-1 overflow-hidden">
                           <div className="font-medium truncate">
@@ -1521,7 +1336,7 @@ function Bot({ embed = false }) {
             ))}
 
             {/* Loading */}
-            {loading && typingIndicatorEnabled && (
+            {loading && (
               <div
                 className="
         inline-flex
@@ -1594,6 +1409,7 @@ function Bot({ embed = false }) {
               <div className="flex justify-end mb-4">
                 <div
                   className="
+        bg-[#067647]
         text-white
         rounded-[18px]
         rounded-br-[6px]
@@ -1601,7 +1417,6 @@ function Bot({ embed = false }) {
         py-3
         w-[170px]
       "
-                  style={{ background: primaryColor }}
                 >
                   <div className="flex items-center justify-center gap-[3px] h-[34px]">
                     {[...Array(22)].map((_, i) => (
@@ -1658,7 +1473,7 @@ function Bot({ embed = false }) {
                 {!selectedFile.type.startsWith("image/") &&
                   !selectedFile.type.startsWith("video/") && (
                     <div className="flex items-center gap-3 border rounded-lg p-3 bg-gray-50 w-fit">
-                      <FaFile size={24} className="text-[var(--nfw-primary)]" />
+                      <FaFile size={24} className="text-[#067647]" />
 
                       <div>
                         <div className="font-medium text-sm">
@@ -1688,7 +1503,7 @@ function Bot({ embed = false }) {
       flex
       items-center
       border-2
-      border-[var(--nfw-primary)]
+      border-[#067647]
       rounded-[18px]
       px-3
       py-2
@@ -1725,7 +1540,7 @@ function Bot({ embed = false }) {
                 onClick={() => fileInputRef.current?.click()}
                 className="
         mr-2
-        text-[var(--nfw-primary)]
+        text-[#067647]
         hover:text-[#045c38]
         hover:scale-110
         transition-all
@@ -1741,7 +1556,7 @@ function Bot({ embed = false }) {
                   {[...Array(18)].map((_, i) => (
                     <span
                       key={i}
-                      className="w-[3px] rounded-full bg-[var(--nfw-primary)] animate-pulse"
+                      className="w-[3px] rounded-full bg-[#067647] animate-pulse"
                       style={{
                         height: `${10 + (i % 6) * 5}px`,
                         animationDelay: `${i * 0.08}s`,
@@ -1793,7 +1608,7 @@ function Bot({ embed = false }) {
     ${
       listening
         ? "bg-red-600 hover:bg-red-700 text-white"
-        : "bg-gray-100 text-[var(--nfw-primary)] hover:bg-[var(--nfw-primary)] hover:text-white"
+        : "bg-gray-100 text-[#067647] hover:bg-[#067647] hover:text-white"
     }
     ${loading ? "opacity-50 cursor-not-allowed" : ""}
   `}
@@ -1817,7 +1632,7 @@ function Bot({ embed = false }) {
     duration-300
     ${
       input.trim() || selectedFile
-        ? "bg-[var(--nfw-primary)] text-white hover:scale-105"
+        ? "bg-[#067647] text-white hover:scale-105"
         : "bg-gray-200 text-gray-400 cursor-not-allowed"
     }
   `}
@@ -1827,7 +1642,6 @@ function Bot({ embed = false }) {
             </div>
 
             {/* Footer */}
-            {showBranding && (
             <div
               className="
       text-center
@@ -1843,7 +1657,6 @@ function Bot({ embed = false }) {
               </span>
               &nbsp;&nbsp;nuformsocial.com
             </div>
-            )}
           </div>
         </div>
       )}
