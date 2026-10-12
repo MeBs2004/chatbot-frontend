@@ -21,7 +21,19 @@ import {
   FaTrash,
   FaChevronDown,
   FaRedo,
+  FaPhoneAlt,
+  FaWhatsapp,
+  FaEnvelope,
+  FaExternalLinkAlt,
 } from "react-icons/fa";
+
+const CTA_ICON = { call: FaPhoneAlt, whatsapp: FaWhatsapp, email: FaEnvelope, custom: FaExternalLinkAlt };
+const CTA_HREF = {
+  call: (v) => `tel:${v}`,
+  whatsapp: (v) => `https://wa.me/${String(v).replace(/[^\d]/g, "")}`,
+  email: (v) => `mailto:${v}`,
+  custom: (v) => v,
+};
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -144,9 +156,17 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
     }
   }, [messages, chatbotId]);
 
-  // Suggestions (same public endpoint the legacy widgets use)
+  // Suggestions — a chatbot with its own configured suggestions
+  // (config.suggestions, set via Customize) uses those directly, no
+  // network call needed. Empty means "fall back to the company-wide
+  // suggestions endpoint", the same one the legacy widgets use —
+  // unchanged behavior for every chatbot that never sets this.
   useEffect(() => {
     if (state !== "ready") return;
+    if (config?.suggestions?.length > 0) {
+      setSuggestions(config.suggestions);
+      return;
+    }
     const controller = new AbortController();
     const fetch_ = async () => {
       try {
@@ -166,7 +186,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
     };
     fetch_();
     return () => controller.abort();
-  }, [state, language, companyId]);
+  }, [state, language, companyId, config?.suggestions]);
 
   // Visitor tracking — same shared visitorId key as the legacy widgets
   useEffect(() => {
@@ -497,6 +517,28 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
               className="rounded-[16px] p-4 text-[13.5px] leading-[1.7] mb-4"
             >
               {win.welcomeMessage}
+            </div>
+          )}
+
+          {messages.length === 0 && config.ctas?.some((c) => c.enabled && c.value) && (
+            <div className="flex gap-2 mb-4">
+              {config.ctas.filter((c) => c.enabled && c.value).map((cta, i) => {
+                const Icon = CTA_ICON[cta.type] || FaExternalLinkAlt;
+                const href = (CTA_HREF[cta.type] || CTA_HREF.custom)(cta.value);
+                return (
+                  <a
+                    key={i}
+                    href={href}
+                    target={cta.type === "custom" ? "_blank" : undefined}
+                    rel={cta.type === "custom" ? "noopener noreferrer" : undefined}
+                    style={{ background: win.primaryColor }}
+                    className="flex items-center justify-center gap-2 flex-1 px-3 py-2 rounded-full text-white text-[12px] font-medium"
+                  >
+                    <Icon size={12} />
+                    <span>{cta.label}</span>
+                  </a>
+                );
+              })}
             </div>
           )}
 

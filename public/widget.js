@@ -9,6 +9,13 @@
   const companyId =
     script.getAttribute("data-company-id") || "nuform-social";
 
+  // Explicit, unambiguous chatbot selection — without this, a company
+  // with more than one chatbot has no reliable way to say which one a
+  // given embed should use (see Embed.jsx). Omit it and existing
+  // single-chatbot-per-company embeds (Nuform Social, OYA) work
+  // exactly as before.
+  const chatbotId = script.getAttribute("data-chatbot-id") || "";
+
   const position =
     script.getAttribute("data-position") || "right";
 
@@ -720,7 +727,10 @@
     function openChat() {
       if (!loaded) {
         iframe.src =
-          BASE_URL + "/embed?companyId=" + encodeURIComponent(companyId);
+          BASE_URL +
+          "/embed?companyId=" +
+          encodeURIComponent(companyId) +
+          (chatbotId ? "&chatbotId=" + encodeURIComponent(chatbotId) : "");
 
         loaded = true;
       }
