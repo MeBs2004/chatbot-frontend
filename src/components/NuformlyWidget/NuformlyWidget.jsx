@@ -25,7 +25,9 @@ import {
   FaWhatsapp,
   FaEnvelope,
   FaExternalLinkAlt,
+  FaCalculator,
 } from "react-icons/fa";
+import SectorCalculatorPanel from "./SectorCalculatorPanel.jsx";
 
 const CTA_ICON = { call: FaPhoneAlt, whatsapp: FaWhatsapp, email: FaEnvelope, custom: FaExternalLinkAlt };
 const CTA_HREF = {
@@ -69,6 +71,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [failedMessage, setFailedMessage] = useState(null);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -267,6 +270,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
         formData.append("text", messageText);
         formData.append("language", language);
         formData.append("visitorId", localStorage.getItem("visitorId"));
+        formData.append("chatbotId", chatbotId);
 
         const res = await axios.post(`${BACKEND_URL}bot/v1/message`, formData, {
           headers: {
@@ -306,7 +310,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
         }
       }
     },
-    [input, loading, isOnline, language, companyId],
+    [input, loading, isOnline, language, companyId, chatbotId],
   );
 
   const handleRetry = useCallback(() => {
@@ -381,6 +385,14 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
 
   const positionClass =
     launcher.position === "bottom-left" ? "left-5" : "right-5";
+
+  const template = chatbotMeta?.template;
+  const hasCalculator = template === "digital_marketing" || template === "energy";
+
+  const handleCalculatorResult = (text) => {
+    setMessages((prev) => [...prev, { id: crypto.randomUUID(), text, sender: "bot" }]);
+    setShowSuggestions(false);
+  };
 
   // ── Launcher ─────────────────────────────────────────────────────────
   if (!embed && !openBot) {
@@ -474,6 +486,17 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          {hasCalculator && (
+            <button
+              onClick={() => setShowCalculator((s) => !s)}
+              aria-label={template === "energy" ? "Open BOM calculator" : "Open marketing calculator"}
+              title={template === "energy" ? "BOM Calculator" : "Marketing Calculator"}
+              className="w-[20px] h-[20px] rounded-full bg-white/20 flex items-center justify-center"
+            >
+              <FaCalculator size={10} />
+            </button>
+          )}
+
           <button
             onClick={clearChatHistory}
             aria-label="Clear chat history"
@@ -506,6 +529,15 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
       </header>
 
       <div className="flex-1 relative overflow-hidden">
+        {showCalculator ? (
+          <SectorCalculatorPanel
+            chatbotId={chatbotId}
+            template={template}
+            primaryColor={win.primaryColor}
+            onResult={handleCalculatorResult}
+            onClose={() => setShowCalculator(false)}
+          />
+        ) : (
         <main
           ref={chatAreaRef}
           onScroll={handleChatScroll}
@@ -605,8 +637,9 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
 
           <div ref={messagesEndRef} />
         </main>
+        )}
 
-        {showScrollBtn && (
+        {!showCalculator && showScrollBtn && (
           <button
             onClick={scrollToLatest}
             style={{ backgroundColor: win.primaryColor }}
@@ -618,6 +651,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
         )}
       </div>
 
+      {!showCalculator && (
       <footer className="shrink-0 bg-white border-t border-[#e8e8e8] px-3 py-3">
         <div
           className="flex items-center border-2 rounded-[16px] px-2 py-1 bg-white"
@@ -656,6 +690,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
           </div>
         )}
       </footer>
+      )}
     </div>
   );
 }
