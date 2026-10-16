@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Nuformly widget — local test site</title>
+</head>
+<body>
+  <h1>Local test website</h1>
+  <p>
+    Serve this file from a different port than the widget (e.g. <code>npx serve -l 8080 .</code>),
+    replace CHATBOT_ID with a chatbot id from the local admin panel, and run
+    <code>npm run dev</code> + <code>npm run dev:widget</code> in chatbot-frontend.
+  </p>
+
+  <!-- New one-line snippet (config-driven) -->
+  <script
+    src="http://localhost:5173/widget.js"
+    data-chatbot-id="CHATBOT_ID"
+    data-api-base="http://localhost:4002/"
+    async
+  ></script>
+
+  <!-- Old snippets, for comparison (use one at a time):
+  <script src="http://localhost:5173/widget.js" data-company-id="nuform-social"></script>
+  <script src="http://localhost:5173/widget.js" data-company-id="oya-gemkara"></script>
+  -->
+</body>
+</html>

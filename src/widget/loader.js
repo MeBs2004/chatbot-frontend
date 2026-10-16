@@ -3,6 +3,7 @@
 //   <script src=".../widget.js" data-company-id="...">  -> original launcher, unchanged
 import { readAttributes, pickMode } from "./launcherModel.js";
 import { startLegacyLauncher } from "./legacyLauncher.js";
+import { startDynamicLauncher } from "./dynamicLauncher.js";
 
 (function () {
   if (window.NuformlyWidgetLoaded) return;
@@ -17,7 +18,9 @@ import { startLegacyLauncher } from "./legacyLauncher.js";
   const mode = pickMode(attrs);
 
   if (mode === "dynamic") {
-    // Wired up in the config-driven launcher (startDynamicLauncher).
+    const start = () => startDynamicLauncher({ attrs, scriptSrc: script.src });
+    if (document.body) start();
+    else document.addEventListener("DOMContentLoaded", start);
     return;
   }
 
