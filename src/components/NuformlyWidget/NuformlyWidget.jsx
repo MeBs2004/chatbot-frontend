@@ -571,6 +571,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
       <div className="flex-1 relative overflow-hidden">
         {showCalculator ? (
           <SectorCalculatorPanel
+            api={api}
             chatbotId={chatbotId}
             template={template}
             primaryColor={win.primaryColor}

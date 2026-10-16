@@ -94,3 +94,17 @@ test("requestTokenFromParent times out with null", async () => {
   Object.defineProperty(window, "parent", { value: { postMessage() {} }, configurable: true });
   assert.equal(await requestTokenFromParent("https://customer.test", 20), null);
 });
+
+test("calculator requests go through the token client", async () => {
+  const { runCalculation } = await import("../src/components/NuformlyWidget/widgetApi.js");
+  const { adapter, seen } = fakeAdapter([{ status: 200, data: { success: true, result: 2 } }, { status: 200, data: { success: true } }]);
+  const client = createWidgetClient({ baseURL: "https://api.test/", getToken: () => "tok", requestToken: async () => null });
+  client.defaults.adapter = adapter;
+  const data = await runCalculation(client, "b1", "marketing", { calculation: "roi", inputs: {} });
+  await runCalculation(client, "b1", "energy-bom", {});
+  assert.equal(data.result, 2);
+  assert.deepEqual(seen.map((s) => [s.url, s.token]), [
+    ["api/widget/calculate/b1/marketing", "tok"],
+    ["api/widget/calculate/b1/energy-bom", "tok"],
+  ]);
+});

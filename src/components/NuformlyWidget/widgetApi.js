@@ -50,3 +50,9 @@ export function requestTokenFromParent(parentOrigin, timeoutMs = 5000) {
     window.parent.postMessage({ type: "NUFORMLY_TOKEN_REQUEST" }, parentOrigin);
   });
 }
+
+/** Sector calculator call ("marketing" | "energy-bom") via the widget client. */
+export async function runCalculation(client, chatbotId, kind, body) {
+  const res = await client.post(`api/widget/calculate/${encodeURIComponent(chatbotId)}/${kind}`, body);
+  return res.data;
+}
