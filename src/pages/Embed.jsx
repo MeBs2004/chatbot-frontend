@@ -22,6 +22,9 @@ export default function Embed() {
   // (Nuform Social, OYA), ambiguous the moment a company has a second
   // chatbot, which is exactly why new chatbots get an explicit id.
   const explicitChatbotId = searchParams.get("chatbotId") || null;
+  // Widget session token from the one-line snippet, passed by widget.js
+  // in the URL fragment (#t=...) so it never reaches server logs.
+  const widgetToken = new URLSearchParams(window.location.hash.slice(1)).get("t") || null;
   const [v1ChatbotId, setV1ChatbotId] = useState(explicitChatbotId);
 
   useEffect(() => {
@@ -74,7 +77,12 @@ export default function Embed() {
       }}
     >
       {v1ChatbotId ? (
-        <NuformlyWidget companyId={companyId} chatbotId={v1ChatbotId} embed={true} />
+        <NuformlyWidget
+          companyId={companyId}
+          chatbotId={v1ChatbotId}
+          token={explicitChatbotId && widgetToken ? widgetToken : null}
+          embed={true}
+        />
       ) : companyId === "oya-gemkara" ? (
         <OyaBot embed={true} />
       ) : (
