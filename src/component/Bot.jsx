@@ -581,6 +581,8 @@ function Bot({ embed = false }) {
     setLoading(true);
     setShowSuggestions(false);
 
+    // ==========================
+
     try {
       let res;
 
