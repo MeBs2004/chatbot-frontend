@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 .env
 .nvmrc
+# Built by `npm run dev:widget` (source: src/widget/)
+public/widget.js

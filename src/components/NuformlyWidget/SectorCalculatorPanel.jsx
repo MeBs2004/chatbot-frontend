@@ -1,8 +1,6 @@
 import { useState } from "react";
-import axios from "axios";
 import { FaArrowLeft } from "react-icons/fa";
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+import { runCalculation } from "./widgetApi.js";
 
 // Deterministic calculators — this component never calls the AI. It
 // posts raw numbers to a real backend endpoint
@@ -75,7 +73,9 @@ function formatCalculatorMessage(kind, data) {
   return lines.join("\n\n");
 }
 
-export default function SectorCalculatorPanel({ chatbotId, template, primaryColor, onResult, onClose }) {
+// `api` is the chat iframe's widget client (createWidgetClient), so
+// calculator calls carry the widget token like every other request.
+export default function SectorCalculatorPanel({ api, chatbotId, template, primaryColor, onResult, onClose }) {
   const isMarketing = template === "digital_marketing";
   const [calculation, setCalculation] = useState("roi");
   const [values, setValues] = useState({});
@@ -91,18 +91,15 @@ export default function SectorCalculatorPanel({ chatbotId, template, primaryColo
     setBusy(true);
     try {
       if (isMarketing) {
-        const res = await axios.post(`${BACKEND_URL}api/widget/calculate/${chatbotId}/marketing`, {
-          calculation,
-          inputs: values,
-        });
-        onResult(formatCalculatorMessage("marketing", res.data));
+        const data = await runCalculation(api, chatbotId, "marketing", { calculation, inputs: values });
+        onResult(formatCalculatorMessage("marketing", data));
       } else {
         const payload = { ...values };
         ENERGY_FIELDS.forEach((f) => {
           if (payload[f.key] === undefined && f.default !== undefined) payload[f.key] = f.default;
         });
-        const res = await axios.post(`${BACKEND_URL}api/widget/calculate/${chatbotId}/energy-bom`, payload);
-        onResult(formatCalculatorMessage("energy", res.data));
+        const data = await runCalculation(api, chatbotId, "energy-bom", payload);
+        onResult(formatCalculatorMessage("energy", data));
       }
       onClose();
     } catch (err) {

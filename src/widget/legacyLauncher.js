@@ -1,28 +1,11 @@
-(function () {
-  if (window.NuformlyWidgetLoaded) return;
-  window.NuformlyWidgetLoaded = true;
+// The original widget.js launcher, unchanged except that its settings
+// arrive as arguments instead of being read from the <script> tag here.
+// Serves every snippet that has no data-chatbot-id (Nuform Social, OYA
+// and any other existing install). Do not add new behaviour here.
 
-  const script = document.currentScript;
+const BASE_URL = "https://chatbot-frontend-nine-psi.vercel.app";
 
-  const BASE_URL = "https://chatbot-frontend-nine-psi.vercel.app";
-
-  const companyId =
-    script.getAttribute("data-company-id") || "nuform-social";
-
-  // Explicit, unambiguous chatbot selection — without this, a company
-  // with more than one chatbot has no reliable way to say which one a
-  // given embed should use (see Embed.jsx). Omit it and existing
-  // single-chatbot-per-company embeds (Nuform Social, OYA) work
-  // exactly as before.
-  const chatbotId = script.getAttribute("data-chatbot-id") || "";
-
-  const position =
-    script.getAttribute("data-position") || "right";
-
-  const bottom = Number(script.getAttribute("data-bottom") || 20);
-
-  const side = Number(script.getAttribute("data-side") || 20);
-
+export function startLegacyLauncher({ companyId, chatbotId, position, bottom, side }) {
   const isOya = companyId === "oya-gemkara";
 
   // ==========================================
@@ -783,4 +766,4 @@
       }
     });
   });
-})();
+}

@@ -6,6 +6,7 @@ import React, {
   useState,
 } from "react";
 import axios from "axios";
+import { createWidgetClient, requestTokenFromParent } from "./widgetApi.js";
 
 // Phase 14 — none of this file's axios calls had a timeout, so a
 // hung backend/network request could leave the widget waiting
@@ -55,7 +56,39 @@ function chatHistoryKey(chatbotId) {
   return `nuformly_v1_chat_history_${chatbotId}`;
 }
 
-function NuformlyWidget({ companyId, chatbotId, embed = false }) {
+// Origin of the page that embedded this iframe (widget.js). Token
+// refreshes and live config are only ever accepted from it.
+function parentOriginOf() {
+  try {
+    return document.referrer ? new URL(document.referrer).origin : null;
+  } catch {
+    return null;
+  }
+}
+
+function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
+  // Widget session token (one-line snippet). Without one this is an old
+  // install and requests keep identifying the company by x-company-id.
+  const tokenRef = useRef(token);
+  const clientRef = useRef(null);
+  if (!clientRef.current) {
+    const parentOrigin = parentOriginOf();
+    clientRef.current = createWidgetClient({
+      baseURL: BACKEND_URL,
+      getToken: () => tokenRef.current,
+      requestToken: async () => {
+        if (!tokenRef.current || !parentOrigin) return null;
+        const fresh = await requestTokenFromParent(parentOrigin);
+        if (fresh) tokenRef.current = fresh;
+        return fresh;
+      },
+    });
+  }
+  const api = clientRef.current;
+  const companyHeader = useCallback(
+    () => (tokenRef.current ? {} : { "x-company-id": companyId }),
+    [companyId],
+  );
   const [state, setState] = useState("loading"); // loading | ready | unavailable | error
   const [unavailableReason, setUnavailableReason] = useState(null);
   const [chatbotMeta, setChatbotMeta] = useState(null);
@@ -102,10 +135,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const res = await axios.get(
-          `${BACKEND_URL}api/widget/config/${chatbotId}`,
-          { signal: controller.signal },
-        );
+        const res = await api.get(`api/widget/config/${chatbotId}`, { signal: controller.signal });
         if (!mountedRef.current) return;
 
         if (!res.data?.success) {
@@ -131,7 +161,20 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
     };
     load();
     return () => controller.abort();
-  }, [chatbotId]);
+  }, [chatbotId, api]);
+
+  // Live Studio changes, forwarded by widget.js (NUFORMLY_CONFIG). Only
+  // from the page that embedded us, and only for token installs.
+  useEffect(() => {
+    const parentOrigin = parentOriginOf();
+    if (!token || !parentOrigin) return;
+    const onMessage = (event) => {
+      if (event.origin !== parentOrigin || event.data?.type !== "NUFORMLY_CONFIG" || !event.data.config) return;
+      setConfig(event.data.config);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [token]);
 
   // Chat history (per chatbot, separate from legacy widgets' own keys)
   useEffect(() => {
@@ -173,9 +216,9 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
     const controller = new AbortController();
     const fetch_ = async () => {
       try {
-        const res = await axios.get(`${BACKEND_URL}bot/v1/suggestions`, {
+        const res = await api.get("bot/v1/suggestions", {
           params: { language },
-          headers: { "x-company-id": companyId },
+          headers: companyHeader(),
           signal: controller.signal,
         });
         if (mountedRef.current && res.data.success) {
@@ -189,7 +232,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
     };
     fetch_();
     return () => controller.abort();
-  }, [state, language, companyId, config?.suggestions]);
+  }, [state, language, companyId, config?.suggestions, api, companyHeader]);
 
   // Visitor tracking — same shared visitorId key as the legacy widgets
   useEffect(() => {
@@ -202,8 +245,8 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
           visitorId = crypto.randomUUID();
           localStorage.setItem("visitorId", visitorId);
         }
-        await axios.post(
-          `${BACKEND_URL}bot/v1/visitor`,
+        await api.post(
+          "bot/v1/visitor",
           {
             visitorId,
             browser: navigator.userAgent,
@@ -212,7 +255,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
             language: navigator.language,
             page: window.location.href,
           },
-          { headers: { "x-company-id": companyId }, signal: controller.signal },
+          { headers: companyHeader(), signal: controller.signal },
         );
       } catch (err) {
         if (!axios.isCancel(err)) {
@@ -222,7 +265,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
     };
     save();
     return () => controller.abort();
-  }, [state, companyId]);
+  }, [state, companyId, api, companyHeader]);
 
   useEffect(() => {
     if (!userScrolledUpRef.current) {
@@ -272,11 +315,8 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
         formData.append("visitorId", localStorage.getItem("visitorId"));
         formData.append("chatbotId", chatbotId);
 
-        const res = await axios.post(`${BACKEND_URL}bot/v1/message`, formData, {
-          headers: {
-            "x-company-id": companyId,
-            "Content-Type": "multipart/form-data",
-          },
+        const res = await api.post("bot/v1/message", formData, {
+          headers: { ...companyHeader(), "Content-Type": "multipart/form-data" },
         });
 
         if (!mountedRef.current) return;
@@ -310,7 +350,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
         }
       }
     },
-    [input, loading, isOnline, language, companyId, chatbotId],
+    [input, loading, isOnline, language, chatbotId, api, companyHeader],
   );
 
   const handleRetry = useCallback(() => {
@@ -531,6 +571,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false }) {
       <div className="flex-1 relative overflow-hidden">
         {showCalculator ? (
           <SectorCalculatorPanel
+            api={api}
             chatbotId={chatbotId}
             template={template}
             primaryColor={win.primaryColor}
