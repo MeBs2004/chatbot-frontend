@@ -2,6 +2,8 @@
 // Everything visible comes from the chatbot's saved config; nothing
 // here knows about any particular company.
 
+import { resolveLauncherStyle } from "../components/NuformlyWidget/widgetStyle.js";
+
 const DEFAULT_OFFSET = 20;
 
 function attrNumber(script, name) {
@@ -36,11 +38,13 @@ export function buildLauncherModel({ config, chatbot, attrs, isMobile }) {
 
   if (!launcher.enabled || (isMobile && !launcher.showOnMobile)) return null;
 
-  const gradient = launcher.gradient || {};
+  const look = resolveLauncherStyle(config);
+  // logo -> the uploaded launcher image, falling back to the bot avatar;
+  // with neither, the default sparkle. Every other key is a built-in glyph.
   const icon =
-    launcher.icon === "logo" && chatWindow.botAvatar
-      ? { kind: "image", src: chatWindow.botAvatar }
-      : { kind: launcher.icon === "chat" ? "chat" : "default" };
+    launcher.icon === "logo" && look.logoSrc
+      ? { kind: "image", src: look.logoSrc }
+      : { kind: look.iconKey === "logo" ? "default" : look.iconKey };
 
   return {
     side: attrs.position || (launcher.position === "bottom-left" ? "left" : "right"),
@@ -49,7 +53,35 @@ export function buildLauncherModel({ config, chatbot, attrs, isMobile }) {
     shape: launcher.shape,
     size: launcher.size,
     animation: launcher.animation,
-    background: gradient.enabled ? `linear-gradient(135deg, ${gradient.from}, ${gradient.to})` : launcher.color,
+    px: look.px,
+    iconPx: look.iconPx,
+    labelFontPx: look.labelFontPx,
+    bubbleMaxWidth: look.bubbleMaxWidth,
+    bubbleFontPx: look.bubbleFontPx,
+    badgePx: look.badgePx,
+    background: look.background,
+    color: look.color,
+    radius: look.radius,
+    pill: look.pill,
+    labelText: look.labelText,
+    labelColor: look.labelColor,
+    iconColor: look.iconColor,
+    shadow: look.shadow,
+    badgeColor: look.badgeColor,
+    entrance: look.entrance,
+    hoverEffect: look.hoverEffect,
+    bubbleAnimation: look.bubbleAnimation,
+    logoOnly: look.logoOnly,
+    bubbleEffect: look.bubbleEffect,
+    bubbleOrder: look.bubbleOrder,
+    bubbleAvatar: look.bubbleAvatar,
+    bubbleAvatarSrc: look.bubbleAvatarSrc,
+    bubbleTail: look.bubbleTail,
+    bubbleHold: look.bubbleHold,
+    bubblePause: look.bubblePause,
+    badgePulse: look.badgePulse,
+    badgeWithBubble: look.badgeWithBubble,
+    wholeLauncherFloat: look.wholeLauncherFloat,
     icon,
     label: `Open ${chatWindow.botName || chatbot.name}`,
     greeting: launcher.showGreeting ? { title: launcher.greetingTitle, message: launcher.greetingMessage } : null,

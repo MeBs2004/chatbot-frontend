@@ -13,6 +13,9 @@ export default function useTextToSpeech() {
 
   // Load voices
   useEffect(() => {
+    // Browsers without speech synthesis: nothing to load (and nothing to clean up).
+    if (!synth.current) return undefined;
+
     const loadVoices = () => {
       voicesRef.current = synth.current.getVoices();
 
@@ -27,8 +30,8 @@ export default function useTextToSpeech() {
 
     loadVoices();
 
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-      speechSynthesis.onvoiceschanged = loadVoices;
+    if (synth.current.onvoiceschanged !== undefined) {
+      synth.current.onvoiceschanged = loadVoices;
     }
 
     return () => {
@@ -46,7 +49,7 @@ export default function useTextToSpeech() {
         return;
       }
 
-      speechSynthesis.onvoiceschanged = () => {
+      synth.current.onvoiceschanged = () => {
         voices = synth.current.getVoices();
         voicesRef.current = voices;
         resolve(voices);
@@ -150,18 +153,18 @@ export default function useTextToSpeech() {
   );
 
   const stop = useCallback(() => {
-    synth.current.cancel();
+    synth.current?.cancel();
     setSpeaking(false);
     setPaused(false);
   }, []);
 
   const pause = useCallback(() => {
-    synth.current.pause();
+    synth.current?.pause();
     setPaused(true);
   }, []);
 
   const resume = useCallback(() => {
-    synth.current.resume();
+    synth.current?.resume();
     setPaused(false);
   }, []);
 

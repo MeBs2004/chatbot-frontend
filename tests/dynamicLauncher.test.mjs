@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { setupDom } from "./helpers/dom.mjs";
 
 beforeEach(() => setupDom());
-const { startDynamicLauncher } = await import("../src/widget/dynamicLauncher.js");
+const { startDynamicLauncher, windowMotion } = await import("../src/widget/dynamicLauncher.js");
 const { fetchSession } = await import("../src/widget/session.js");
 
 const config = {
@@ -84,4 +84,29 @@ test("live config update recolours and forwards to the iframe", async () => {
   assert.deepEqual(posted.at(-1), [{ type: "NUFORMLY_CONFIG", config: next }, "https://cdn.test"]);
   handlers["domain:event"]({ type: "chatbot.config.updated", available: false });
   assert.equal(document.querySelector("[data-nuformly-launcher]").style.display, "none");
+});
+
+test("auto-open uses its own animation; 'default' falls back to the open animation", () => {
+  const cfg = (auto, open) => ({ chatWindow: { windowAnimation: open }, behavior: { autoOpenAnimation: auto } });
+  assert.deepEqual(windowMotion(cfg("default", "zoom"), true), windowMotion(cfg("default", "zoom"), false));
+  assert.notDeepEqual(windowMotion(cfg("swing", "zoom"), true), windowMotion(cfg("swing", "zoom"), false));
+  assert.equal(windowMotion(cfg("blur", "fade"), true).hiddenFilter, "blur(14px)");
+  // a manual open never uses the auto-open animation
+  assert.deepEqual(windowMotion(cfg("swing", "fade"), false), windowMotion(cfg("default", "fade"), false));
+  for (const name of ["slide-down", "slide-left", "slide-right", "flip-y", "swing", "blur"]) {
+    assert.ok(windowMotion(cfg(name, "fade"), true).hidden, name);
+  }
+});
+
+test("auto-open timer opens the window with the auto animation", async () => {
+  const mock = await import("node:test").then((m) => m.mock);
+  mock.timers.enable({ apis: ["setTimeout"] });
+  const auto = { ...config, behavior: { autoOpen: true, autoOpenDelay: 1, autoOpenAnimation: "drop" }, chatWindow: { botName: "Aria", windowAnimation: "fade" } };
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ success: true, available: true, token: "tok", chatbot: { id: "b1", name: "Bot" }, config: auto }) });
+  await startDynamicLauncher({ attrs, scriptSrc: "https://cdn.test/widget.js", fetchImpl, connectSocket: noSocket });
+  mock.timers.tick(1000);
+  const iframe = document.querySelector("iframe");
+  assert.ok(iframe, "window opened by itself");
+  assert.ok(iframe.style.transition.includes("cubic-bezier(.34,1.56,.64,1)"), "drop motion, not the fade used for manual opens");
+  mock.timers.reset();
 });

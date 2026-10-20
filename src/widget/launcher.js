@@ -2,25 +2,18 @@
 // the customer's page. DOM APIs only: every piece of text from the
 // chatbot's config goes through textContent, never innerHTML.
 
+import { ICON_PATHS, animationCss, animClass } from "../components/NuformlyWidget/widgetStyle.js";
+
 const SIZES = { small: 48, medium: 60, large: 72 };
 const FIRST_BUBBLE_MS = 2000;
 const ROTATE_MS = 6000;
-const SVG_NS = "http://www.w3.org/2000/svg";
-const ICON_PATHS = {
-  // Sparkle ("AI") and speech-bubble icons, 24x24 viewBox.
-  default: "M12 2l2.4 6.1L20.5 10l-6.1 2.4L12 18.5l-2.4-6.1L3.5 10l6.1-1.9L12 2zm7 13l1.1 2.9L23 19l-2.9 1.1L19 23l-1.1-2.9L15 19l2.9-1.1L19 15z",
-  chat: "M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z",
-};
 
-const CSS = `
-@keyframes nuformlyFloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
-@keyframes nuformlyPulseRing { 0% { box-shadow: 0 0 0 0 rgba(0,0,0,.25) } 100% { box-shadow: 0 0 0 14px rgba(0,0,0,0) } }
-@keyframes nuformlyGlow { 0%,100% { filter: brightness(1) } 50% { filter: brightness(1.15) } }
-[data-nuformly-launcher] .nf-anim-float { animation: nuformlyFloat 4.5s ease-in-out infinite }
-[data-nuformly-launcher] .nf-anim-pulse { animation: nuformlyPulseRing 2.6s ease-out infinite }
-[data-nuformly-launcher] .nf-anim-glow { animation: nuformlyGlow 3s ease-in-out infinite }
-@media (prefers-reduced-motion: reduce) { [data-nuformly-launcher] * { animation: none !important } }
-`;
+const SVG_NS = "http://www.w3.org/2000/svg";
+// All motion (idle loops, entrances, hover effects, bubble animations)
+// comes from the one shared definition, scoped to the launcher's own root
+// so nothing it declares can reach the customer's page.
+const SCOPE = "[data-nuformly-launcher]";
+const CSS = animationCss("nf", SCOPE);
 
 function ensureStyle() {
   if (document.getElementById("nuformly-launcher-style")) return;
@@ -30,20 +23,22 @@ function ensureStyle() {
   document.head.appendChild(style);
 }
 
-function iconNode(icon, px) {
+function iconNode(icon, iconPx, fit = "cover") {
   if (icon.kind === "image") {
     const img = document.createElement("img");
     img.setAttribute("src", icon.src);
     img.setAttribute("alt", "");
-    Object.assign(img.style, { width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit" });
+    img.setAttribute("class", "nf-icon");
+    Object.assign(img.style, { width: "100%", height: "100%", objectFit: fit, borderRadius: "inherit" });
     return img;
   }
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", String(Math.round(px * 0.45)));
-  svg.setAttribute("height", String(Math.round(px * 0.45)));
-  svg.setAttribute("fill", "#ffffff");
+  svg.setAttribute("width", String(iconPx));
+  svg.setAttribute("height", String(iconPx));
+  svg.setAttribute("fill", icon.color || "#ffffff");
   svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", "nf-icon");
   const path = document.createElementNS(SVG_NS, "path");
   path.setAttribute("d", ICON_PATHS[icon.kind] || ICON_PATHS.default);
   svg.appendChild(path);
@@ -59,6 +54,7 @@ export function mountLauncher(initialModel, { onClick }) {
   let timers = [];
   let open = false;
   let model = null;
+  let badgeEl = null; // so the greeting bubble can show/hide the badge with it
 
   const clearTimers = () => {
     timers.forEach((t) => {
@@ -70,6 +66,11 @@ export function mountLauncher(initialModel, { onClick }) {
 
   function renderBubble(bubble, message) {
     bubble.replaceChildren();
+    // Restart the bubble's entrance animation for every message.
+    const cls = bubble.className;
+    bubble.className = "";
+    void bubble.offsetWidth;
+    bubble.className = cls;
     if (message.title) {
       const title = document.createElement("strong");
       title.textContent = message.title;
@@ -96,6 +97,115 @@ export function mountLauncher(initialModel, { onClick }) {
     bubble.style.display = "block";
   }
 
+  // The "typing" bubble: wait, show a typing indicator, type the message
+  // out, hold it, fade it, pause, then do it again with the next one.
+  function startTypingCycle(bubble, messages) {
+    const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+    let last = -1;
+    let seq = 0;
+    const pick = () => {
+      if (messages.length === 1) return 0;
+      if (model.bubbleOrder === "random") {
+        let n;
+        do n = Math.floor(Math.random() * messages.length);
+        while (n === last);
+        return n;
+      }
+      return seq++ % messages.length;
+    };
+
+    // Bubble contents: [avatar] [dots | text] [dismiss] + tail
+    bubble.replaceChildren();
+    Object.assign(bubble.style, { alignItems: "flex-start", gap: "6px" });
+    if (model.bubbleAvatar && model.bubbleAvatarSrc) {
+      const avatar = document.createElement("img");
+      avatar.setAttribute("src", model.bubbleAvatarSrc);
+      avatar.setAttribute("alt", "");
+      Object.assign(avatar.style, { width: "16px", height: "16px", borderRadius: "50%", objectFit: "cover", marginTop: "2px", flexShrink: "0" });
+      bubble.appendChild(avatar);
+    }
+    const dots = document.createElement("div");
+    dots.className = "nf-bdots";
+    dots.style.marginTop = "3px";
+    for (let n = 0; n < 3; n += 1) dots.appendChild(document.createElement("i"));
+    const text = document.createElement("p");
+    Object.assign(text.style, { margin: "0", fontWeight: "500", lineHeight: "1.35", paddingTop: "1px" });
+    bubble.append(dots, text);
+    const close = document.createElement("button");
+    close.type = "button";
+    close.setAttribute("aria-label", "Dismiss");
+    close.textContent = "✕";
+    Object.assign(close.style, {
+      position: "absolute", top: "-5px", right: "-5px", width: "14px", height: "14px", borderRadius: "50%",
+      border: "1px solid #e5e7eb", background: "#fff", color: "#9ca3af", fontSize: "7px", lineHeight: "1", cursor: "pointer", padding: "0",
+    });
+    bubble.appendChild(close);
+    if (model.bubbleTail) {
+      const tail = document.createElement("div");
+      Object.assign(tail.style, {
+        position: "absolute", bottom: "-5px", [model.side]: "20px", width: "10px", height: "10px", background: "#fff",
+        borderBottom: "1px solid #e5e7eb", borderRight: "1px solid #e5e7eb", transform: "rotate(45deg)",
+      });
+      bubble.appendChild(tail);
+    }
+
+    const setBadge = (visible) => {
+      if (badgeEl && model.badgeWithBubble) badgeEl.style.display = visible ? "" : "none";
+    };
+    const show = () => {
+      setBadge(true);
+      bubble.style.transition = "";
+      bubble.style.opacity = "1";
+      bubble.style.display = "flex";
+      // restart the entrance animation
+      const cls = bubble.className;
+      bubble.className = "";
+      void bubble.offsetWidth;
+      bubble.className = cls;
+    };
+    const hide = (after) => {
+      bubble.style.transition = "opacity .3s ease";
+      bubble.style.opacity = "0";
+      later(300, () => {
+        bubble.style.display = "none";
+        setBadge(false);
+        after();
+      });
+    };
+    const pause = () => later(model.bubblePause * 1000, cycle);
+
+    function cycle() {
+      const index = pick();
+      last = index;
+      const message = messages[index];
+      const full = message.title ? `${message.title} ${message.text}` : message.text;
+      dots.style.display = "flex";
+      text.style.display = "none";
+      text.textContent = "";
+      show();
+      close.style.display = "none";
+      later(700, () => {
+        dots.style.display = "none";
+        text.style.display = "block";
+        const type = (n) => {
+          text.textContent = full.slice(0, n);
+          if (n >= full.length) {
+            close.style.display = "block";
+            close.onclick = () => {
+              clearTimers();
+              hide(pause);
+            };
+            later(model.bubbleHold * 1000, () => hide(pause));
+            return;
+          }
+          later(35 + Math.random() * 10, () => type(n + 1));
+        };
+        type(0);
+      });
+    }
+    later(FIRST_BUBBLE_MS, cycle);
+  }
+
   function render() {
     clearTimers();
     root.replaceChildren();
@@ -103,7 +213,11 @@ export function mountLauncher(initialModel, { onClick }) {
       root.style.display = "none";
       return;
     }
-    const px = SIZES[model.size] || SIZES.medium;
+    const px = model.px || SIZES[model.size] || SIZES.medium;
+    const iconPx = model.iconPx || Math.round(px * 0.45);
+    // The original widget's motion: the whole launcher floats, a ring pulses behind it.
+    root.className = model.wholeLauncherFloat ? "nf-wrap-float" : "";
+    badgeEl = null;
     Object.assign(root.style, {
       display: "",
       position: "fixed",
@@ -117,31 +231,81 @@ export function mountLauncher(initialModel, { onClick }) {
     const bubble = document.createElement("div");
     bubble.setAttribute("data-nuformly-bubble", "");
     bubble.setAttribute("aria-live", "polite");
+    bubble.className = animClass("nf", "bubble", model.bubbleAnimation);
     Object.assign(bubble.style, {
-      display: "none", position: "absolute", bottom: `${px + 14}px`, [model.side]: "0", width: "max-content",
-      maxWidth: "220px", padding: "10px 14px", background: "#fff", color: "#374151", border: "1px solid #e5e7eb",
-      borderRadius: "12px", boxShadow: "0 6px 20px rgba(0,0,0,.12)", fontSize: "13px", lineHeight: "1.4",
+      display: "none", position: "absolute", bottom: `${px + (model.bubbleEffect === "typing" ? 17 : 14)}px`, [model.side]: "0", width: "max-content",
+      maxWidth: `min(${model.bubbleMaxWidth || 220}px, calc(100vw - 90px))`, padding: model.bubbleEffect === "typing" ? "7px 12px 7px 8px" : "10px 14px",
+      minWidth: model.bubbleEffect === "typing" ? "150px" : "", background: "#fff", color: "#374151", border: "1px solid #e5e7eb",
+      borderRadius: "12px", boxShadow: "0 6px 20px rgba(0,0,0,.12)", fontSize: `${model.bubbleFontPx || 13}px`, lineHeight: "1.4",
     });
     root.appendChild(bubble);
+
+    if (model.wholeLauncherFloat) {
+      const ring = document.createElement("span");
+      ring.className = "nf-ring";
+      ring.style.setProperty("--nf-c", model.color || "#067647");
+      ring.setAttribute("aria-hidden", "true");
+      root.appendChild(ring);
+    }
 
     const button = document.createElement("button");
     button.type = "button";
     button.setAttribute("aria-label", model.label);
-    button.className = model.animation && model.animation !== "none" ? `nf-anim-${model.animation}` : "";
+    const classes = ["nf-hover", animClass("nf", "hover", model.hoverEffect || "grow")];
+    // float-ripple moves the wrapper (above), not the button itself.
+    classes.push(model.wholeLauncherFloat ? "" : animClass("nf", "anim", model.animation), animClass("nf", "in", model.entrance));
+    button.className = classes.filter(Boolean).join(" ");
+    button.style.setProperty("--nf-c", model.color || "#000000");
+    const isImage = model.icon.kind === "image";
+    const pill = Boolean(model.pill && model.labelText);
     Object.assign(button.style, {
-      position: "relative", width: `${px}px`, height: `${px}px`, padding: "0", border: "none", cursor: "pointer",
-      borderRadius: model.shape === "rounded-square" ? "16px" : "50%", background: model.background,
-      boxShadow: "0 10px 30px rgba(0,0,0,.25)", display: "flex", alignItems: "center", justifyContent: "center",
-      overflow: model.icon.kind === "image" ? "hidden" : "visible",
+      position: "relative", height: `${px}px`, padding: pill ? `0 ${Math.round(px * 0.4)}px 0 ${Math.round(px * 0.3)}px` : "0",
+      border: "none", cursor: "pointer", gap: "10px",
+      borderRadius: model.radius || (model.shape === "rounded-square" ? "16px" : "50%"), background: model.background,
+      boxShadow: model.shadow || "0 10px 30px rgba(0,0,0,.25)", display: "flex", alignItems: "center", justifyContent: "center",
+      overflow: isImage && !model.logoOnly ? "hidden" : "visible",
     });
-    button.appendChild(iconNode(model.icon, px));
+    if (!pill) button.style.width = `${px}px`;
+    if (pill && isImage) {
+      // A logo inside a pill is a round chip, not the whole button.
+      const chip = document.createElement("span");
+      Object.assign(chip.style, {
+        width: `${Math.round(px * 0.7)}px`, height: `${Math.round(px * 0.7)}px`, borderRadius: "50%", overflow: "hidden", display: "block",
+      });
+      chip.appendChild(iconNode(model.icon, iconPx));
+      button.appendChild(chip);
+      button.style.overflow = "visible";
+    } else {
+      const glyph = iconNode({ ...model.icon, color: model.iconColor }, iconPx, model.logoOnly ? "contain" : "cover");
+      if (model.wholeLauncherFloat) {
+        // The logo gently breathes (and glows now and then) inside the button.
+        const inner = document.createElement("div");
+        inner.className = "nf-breathe";
+        inner.appendChild(glyph);
+        button.appendChild(inner);
+      } else {
+        button.appendChild(glyph);
+      }
+    }
+    if (pill) {
+      const label = document.createElement("span");
+      label.textContent = model.labelText;
+      Object.assign(label.style, {
+        color: model.labelColor || "#ffffff", fontSize: `${model.labelFontPx || Math.max(13, Math.round(px * 0.24))}px`, fontWeight: "600", whiteSpace: "nowrap",
+      });
+      button.appendChild(label);
+    }
     if (model.showBadge) {
       const badge = document.createElement("span");
+      if (model.badgePulse) badge.className = "nf-badge-pulse";
       Object.assign(badge.style, {
-        position: "absolute", top: "2px", right: "2px", width: "12px", height: "12px", borderRadius: "50%",
-        background: "#ef4444", border: "2px solid #fff",
+        position: "absolute", top: "2px", right: "2px", width: `${model.badgePx || 12}px`, height: `${model.badgePx || 12}px`, borderRadius: "50%",
+        background: model.badgeColor || "#ef4444", border: "2px solid #fff",
       });
       button.appendChild(badge);
+      badgeEl = badge;
+      // Original behaviour: the dot only shows while the greeting bubble is up.
+      if (model.badgeWithBubble && model.bubbleEffect === "typing") badge.style.display = "none";
     }
     button.onclick = () => onClick();
     root.appendChild(button);
@@ -151,6 +315,10 @@ export function mountLauncher(initialModel, { onClick }) {
       ...model.teasers.map((t) => ({ text: t })),
     ];
     if (messages.length === 0 || open) return;
+    if (model.bubbleEffect === "typing") {
+      startTypingCycle(bubble, messages);
+      return;
+    }
     let i = 0;
     timers.push(
       setTimeout(() => {
