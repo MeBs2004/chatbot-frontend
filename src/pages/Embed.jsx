@@ -27,6 +27,17 @@ export default function Embed() {
   const widgetToken = new URLSearchParams(window.location.hash.slice(1)).get("t") || null;
   const [v1ChatbotId, setV1ChatbotId] = useState(explicitChatbotId);
 
+  // This page IS the widget's iframe: pin it to the iframe's size so the
+  // page itself never scrolls — only the message list inside the chat does.
+  useEffect(() => {
+    const els = [document.documentElement, document.body];
+    const saved = els.map((el) => el.getAttribute("style"));
+    for (const el of els) {
+      Object.assign(el.style, { height: "100%", margin: "0", overflow: "hidden", overscrollBehavior: "none", background: "transparent" });
+    }
+    return () => els.forEach((el, i) => (saved[i] == null ? el.removeAttribute("style") : el.setAttribute("style", saved[i])));
+  }, []);
+
   useEffect(() => {
     window.NUFORMLY_CONFIG = {
       companyId,
@@ -68,8 +79,8 @@ export default function Embed() {
   return (
     <div
       style={{
-        width: "100%",
-        height: "100%",
+        position: "fixed",
+        inset: 0,
         margin: 0,
         padding: 0,
         overflow: "hidden",

@@ -933,7 +933,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
           ref={chatAreaRef}
           onScroll={handleChatScroll}
           className="h-full overflow-y-auto"
-          style={{ background: look.chatBg, backgroundImage: look.chatBgImage, backgroundSize: look.chatBgSize, padding: look.contentPadding }}
+          style={{ background: look.chatBg, backgroundImage: look.chatBgImage, backgroundSize: look.chatBgSize, padding: look.contentPadding, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" }}
         >
           {isOffline && (
             <div
