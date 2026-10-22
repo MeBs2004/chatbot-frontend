@@ -26,6 +26,7 @@ const WINDOW_MOTION = {
   "flip-y": { hidden: "perspective(900px) rotateY(70deg)", transition: "all .55s ease" },
   swing: { hidden: "rotate(-14deg) translateY(20px)", transition: "all .8s cubic-bezier(.34,1.56,.64,1)" },
   blur: { hidden: "scale(.96)", hiddenFilter: "blur(14px)", transition: "all .5s ease" },
+  spring: { hidden: "translateY(24px) scale(.94)", transition: "all .44s cubic-bezier(.34,1.56,.64,1)" },
 };
 // `auto` = the window is opening by itself (behavior.autoOpen). It uses
 // behavior.autoOpenAnimation unless that is "default", which means the

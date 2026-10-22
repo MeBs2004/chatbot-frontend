@@ -80,6 +80,9 @@ export const SIZE_RANGES = {
   "launcher.bubbleMaxWidth": [140, 360],
   "launcher.bubbleFontSize": [10, 20],
   "launcher.badgeSize": [8, 28],
+  "launcher.logoScale": [60, 160],
+  "launcher.bubbleOffset": [4, 40],
+  "launcher.bubbleLetterSpacing": [0, 3],
   "chatWindow.customWidth": [280, 560],
   "chatWindow.customHeight": [360, 800],
   "chatWindow.customRadius": [0, 48],
@@ -113,6 +116,17 @@ export const SIZE_RANGES = {
   "chatWindow.inputHeight": [36, 80],
   "chatWindow.sendButtonSize": [26, 56],
   "chatWindow.footerFontSize": [9, 16],
+  "chatWindow.headerLogoWidth": [16, 64],
+  "chatWindow.headerLogoHeight": [16, 64],
+  "chatWindow.messageAvatarHeight": [20, 56],
+  "chatWindow.inputPaddingX": [4, 24],
+  "chatWindow.inputPaddingY": [2, 16],
+  "chatWindow.sendButtonRadius": [0, 28],
+  "chatWindow.sendIconSize": [10, 24],
+  "chatWindow.ctaIconSize": [10, 24],
+  "chatWindow.headerButtonAlpha": [0, 40],
+  "chatWindow.closeIconSize": [8, 20],
+  "chatWindow.paragraphGap": [0, 16],
   "forms.fieldHeight": [32, 64],
   "forms.buttonHeight": [32, 64],
   "forms.fontSize": [11, 20],
@@ -220,7 +234,7 @@ export function resolveWindowStyle(config) {
     avatarRadius: w.avatarShape === "rounded" ? "12px" : "50%",
     inlineStatus: w.statusStyle === "inline",
     statusDotColor: hex(w.statusDotColor, "") || (w.statusStyle === "inline" ? "#8dffb3" : "#22c55e"),
-    sendRadius: w.sendButtonShape === "circle" ? "50%" : "10px",
+    sendRadius: sizeOf(config, "chatWindow.sendButtonRadius") != null ? `${sizeOf(config, "chatWindow.sendButtonRadius")}px` : w.sendButtonShape === "circle" ? "50%" : "10px",
     brandName: (w.brandName || "").trim(),
     brandUrl: (w.brandUrl || "").trim(),
     brandColor: hex(w.brandColor, "") || primary,
@@ -280,6 +294,29 @@ export function resolveWindowStyle(config) {
     inputHeight: sizeOf(config, "chatWindow.inputHeight"),
     sendSize: sz("chatWindow.sendButtonSize", 34),
     footerFontSize: sz("chatWindow.footerFontSize", 10.5),
+    // The header can show its own image; otherwise the bot avatar.
+    headerLogo: (typeof w.headerLogo === "string" && w.headerLogo.trim()) || w.botAvatar || "",
+    headerLogoWidth: sz("chatWindow.headerLogoWidth", sz("chatWindow.avatarSize", 36) - 5),
+    headerLogoHeight: sz("chatWindow.headerLogoHeight", sz("chatWindow.avatarSize", 36) - 5),
+    messageAvatarHeight: sz("chatWindow.messageAvatarHeight", sz("chatWindow.messageAvatarSize", 26)),
+    listenBelow: w.listenPlacement === "below",
+    // Up to three typing-dot colours; null = the style's own colours.
+    typingColors: [w.typingColor1, w.typingColor2, w.typingColor3].some((c) => hex(c, ""))
+      ? [w.typingColor1, w.typingColor2, w.typingColor3].map((c, i, all) => hex(c, "") || hex(all.find((x) => hex(x, "")), primary))
+      : null,
+    typingAvatar: Boolean(w.typingAvatar),
+    attachIcon: w.attachIcon === "paperclip" ? "paperclip" : "plus",
+    inputPadX: sz("chatWindow.inputPaddingX", 12),
+    inputPadY: sz("chatWindow.inputPaddingY", 8),
+    sendIconSize: sz("chatWindow.sendIconSize", 15),
+    ctaIconSize: sz("chatWindow.ctaIconSize", sz("chatWindow.ctaFontSize", 12)),
+    ctaText: hex(w.ctaTextColor, ""),
+    // Header buttons: a white wash at this opacity (percent).
+    headerButtonBg: `rgba(255,255,255,${sz("chatWindow.headerButtonAlpha", 20) / 100})`,
+    closeIconSize: sz("chatWindow.closeIconSize", 12),
+    // Space under each paragraph of a reply. Automatic = 8px under every
+    // paragraph (the original widget); a set value leaves none under the last.
+    paragraphGap: sizeOf(config, "chatWindow.paragraphGap"),
     form: {
       fieldHeight: sz("forms.fieldHeight", 38),
       buttonHeight: sz("forms.buttonHeight", 36),
@@ -322,7 +359,21 @@ export function resolveLauncherStyle(config) {
     badgeWithBubble: Boolean(l.badgeWithBubble),
     // "float-ripple" is the original widget's motion: the WHOLE launcher (bubble
     // included) floats, a filled ring pulses out from behind it, and the logo breathes.
-    wholeLauncherFloat: l.animation === "float-ripple",
+    wholeLauncherFloat: l.animation === "float-ripple" || l.animation === "luxe",
+    // "luxe": floating launcher with a soft halo, twinkling sparkles, a
+    // breathing logo that glows now and then, and a light shimmer.
+    luxe: l.animation === "luxe",
+    effectColor: hex(l.effectColor, "") || color,
+    sparkleColor: hex(l.sparkleColor, "") || hex(l.effectColor, "") || color,
+    logoScale: sizeOf(config, "launcher.logoScale") ?? 100,
+    bubbleOffset: sizeOf(config, "launcher.bubbleOffset"),
+    bubbleLetterSpacing: sizeOf(config, "launcher.bubbleLetterSpacing") ?? 0,
+    bubbleBg: hex(l.bubbleBgColor, "") || "#ffffff",
+    bubbleBorder: hex(l.bubbleBorderColor, "") || "#e5e7eb",
+    bubbleText: hex(l.bubbleTextColor, "") || "#374151",
+    bubbleDot: hex(l.bubbleDotColor, "") || "#9ca3af",
+    // A coloured bubble border also rings the bubble's avatar.
+    bubbleAvatarRing: Boolean(hex(l.bubbleBorderColor, "")),
     color,
     radius,
     pill,
@@ -451,6 +502,13 @@ export function animationCss(p, scope = "") {
   frames("pulse-ring", "0% { transform: scale(.85); opacity: .55 } 70% { transform: scale(1.35); opacity: 0 } 100% { transform: scale(1.35); opacity: 0 }");
   frames("breathe-soft", "0%,100% { transform: scale(1) } 50% { transform: scale(1.03) }");
   frames("glow-soft", "0%,100% { box-shadow: 0 0 0 rgba(6,118,71,0) } 6% { box-shadow: 0 0 22px 6px rgba(6,118,71,.45) } 14% { box-shadow: 0 0 0 rgba(6,118,71,0) }");
+  // luxe launcher: glow in the effect colour, a fading halo, twinkling sparkles, a shimmer sweep
+  frames("glow-c", "0%,100% { box-shadow: 0 0 0 transparent } 6% { box-shadow: 0 0 22px 6px color-mix(in srgb, var(--nf-g, #d4af37) 40%, transparent) } 14% { box-shadow: 0 0 0 transparent }");
+  frames("halo", "0% { transform: scale(.9); opacity: .4 } 50% { transform: scale(1.25); opacity: .18 } 100% { transform: scale(1.5); opacity: 0 }");
+  frames("sparkle", "0%,100% { opacity: 0; transform: scale(.4) } 50% { opacity: .85; transform: scale(1) }");
+  frames("lux-shimmer", "0%,88% { background-position: -120% -120%; opacity: 0 } 92% { opacity: .7 } 100% { background-position: 220% 220%; opacity: 0 }");
+  frames("in-rise", "0% { opacity: 0; transform: translateY(24px) scale(.9) } 100% { opacity: 1; transform: translateY(0) scale(1) }");
+  frames("win-spring", "0% { opacity: 0; transform: translateY(24px) scale(.94) } 65% { opacity: 1; transform: translateY(-3px) scale(1.01) } 100% { opacity: 1; transform: none }");
   frames("wobble", "0%,100% { transform: translateX(0) rotate(0) } 15% { transform: translateX(-6px) rotate(-5deg) } 30% { transform: translateX(5px) rotate(3deg) } 45% { transform: translateX(-4px) rotate(-3deg) } 60% { transform: translateX(3px) rotate(2deg) } 75% { transform: translateX(-2px) rotate(-1deg) }");
 
   frames("in-pop", "0% { opacity: 0; transform: scale(.3) } 70% { transform: scale(1.12) } 100% { opacity: 1; transform: scale(1) }");
@@ -521,14 +579,21 @@ export function animationCss(p, scope = "") {
   for (const [name, timing] of Object.entries(loops)) rule(`.${p}-anim-${name}`, `animation: ${k(name)} ${timing}`);
   // The Nuform launcher: a gentle up-and-down float with a soft ring pulsing out of it.
   rule(`.${p}-anim-float-ripple`, `animation: ${k("float-big")} 4.5s ease-in-out infinite, ${k("ripple")} 2.6s ease-out infinite`);
+  // Studio sample for "luxe" (the live launcher builds it from the halo/sparkle/logo parts below).
+  rule(`.${p}-anim-luxe`, `animation: ${k("float-big")} 4.5s ease-in-out infinite, ${k("glow-c")} 4s ease-in-out infinite`);
   // Original-widget launcher: the wrapper floats, a ring pulses behind, the logo breathes.
   rule(`.${p}-wrap-float`, `animation: ${k("float-big")} 4.5s ease-in-out infinite`);
   rule(`.${p}-ring`, `position: absolute; inset: 0; border-radius: 50%; background: var(--nf-c, #067647); pointer-events: none; animation: ${k("pulse-ring")} 2.6s ease-out infinite`);
   rule(`.${p}-breathe`, `width: 100%; height: 100%; border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: ${k("breathe-soft")} 5.5s ease-in-out infinite, ${k("glow-soft")} 8s ease-in-out infinite`);
+  rule(`.${p}-luxe-logo`, `position: relative; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; animation: ${k("breathe-soft")} 5.5s ease-in-out infinite, ${k("glow-c")} 8s ease-in-out infinite`);
+  rule(`.${p}-halo`, `position: absolute; inset: 0; border-radius: 50%; pointer-events: none; filter: blur(6px); background: radial-gradient(circle, color-mix(in srgb, var(--nf-g, #d4af37) 55%, transparent) 0%, transparent 70%); animation: ${k("halo")} 3.4s ease-out infinite`);
+  rule(`.${p}-sparkles`, "position: absolute; inset: -30px; pointer-events: none");
+  rule(`.${p}-sparkle`, `position: absolute; font-size: 8px; color: var(--nf-s, #e7c873); text-shadow: 0 0 4px color-mix(in srgb, var(--nf-g, #d4af37) 80%, transparent); animation: ${k("sparkle")} var(--dur, 4s) ease-in-out infinite; animation-delay: var(--delay, 0s)`);
+  rule(`.${p}-shimmer`, `position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.85) 50%, transparent 70%); background-size: 250% 250%; animation: ${k("lux-shimmer")} 9s ease-in-out infinite`);
   rule(`.${p}-badge-pulse`, `animation: ${k("badge-pulse")} 2s ease-in-out infinite`);
   // Typing dots inside the launcher's greeting bubble.
   rule(`.${p}-bdots`, "display: flex; align-items: center; gap: 4px; height: 11px");
-  rule(`.${p}-bdots > i`, `display: block; width: 4px; height: 4px; border-radius: 50%; background: #9ca3af; animation: ${k("tbounce")} 1s infinite`);
+  rule(`.${p}-bdots > i`, `display: block; width: 4px; height: 4px; border-radius: 50%; background: var(--nf-bdot, #9ca3af); animation: ${k("tbounce")} 1s infinite`);
   rule(`.${p}-bdots > i:nth-child(2)`, "animation-delay: .15s");
   rule(`.${p}-bdots > i:nth-child(3)`, "animation-delay: .3s");
 
@@ -537,7 +602,7 @@ export function animationCss(p, scope = "") {
     pop: ".55s cubic-bezier(.34,1.56,.64,1) both", "slide-up": ".5s cubic-bezier(.16,1,.3,1) both", fade: ".6s ease both",
     bounce: ".8s ease both", zoom: ".5s cubic-bezier(.16,1,.3,1) both", flip: ".7s ease both",
     "slide-left": ".5s cubic-bezier(.16,1,.3,1) both", "slide-right": ".5s cubic-bezier(.16,1,.3,1) both",
-    drop: ".8s ease both", rotate: ".7s cubic-bezier(.16,1,.3,1) both", blur: ".7s ease both",
+    drop: ".8s ease both", rotate: ".7s cubic-bezier(.16,1,.3,1) both", blur: ".7s ease both", rise: ".6s ease-out both",
   };
   for (const [name, timing] of Object.entries(entrances)) rule(`.${p}-in-${name}`, `animation: ${k(`in-${name}`)} ${timing}`);
 
@@ -552,6 +617,7 @@ export function animationCss(p, scope = "") {
   rule(`.${p}-hover-bounce:hover`, `animation: ${k("bounce")} .8s ease`);
   rule(`.${p}-hover-pulse:hover`, `animation: ${k("heartbeat")} .9s ease`);
   rule(`.${p}-hover-grow-rotate:hover`, "transform: scale(1.08) rotate(2deg)");
+  rule(`.${p}-hover-subtle:hover`, "transform: scale(1.05) rotate(1deg)");
 
   // ── window open
   rule(`.${p}-win-slide-up`, `animation: ${k("in-slide-up")} .35s ease both`);
@@ -560,7 +626,7 @@ export function animationCss(p, scope = "") {
     scale: ".3s cubic-bezier(.16,1,.3,1) both", bounce: ".5s cubic-bezier(.34,1.56,.64,1) both", zoom: ".35s cubic-bezier(.16,1,.3,1) both",
     flip: ".55s ease both", drop: ".6s ease both", rotate: ".45s cubic-bezier(.16,1,.3,1) both", elastic: ".7s ease both",
     "slide-down": ".35s ease both", "slide-left": ".4s cubic-bezier(.16,1,.3,1) both", "slide-right": ".4s cubic-bezier(.16,1,.3,1) both",
-    "flip-y": ".55s ease both", swing: ".8s ease both", blur: ".5s ease both",
+    "flip-y": ".55s ease both", swing: ".8s ease both", blur: ".5s ease both", spring: ".44s cubic-bezier(.34,1.56,.64,1) both",
   };
   for (const [name, timing] of Object.entries(winTiming)) rule(`.${p}-win-${name}`, `animation: ${k(`win-${name}`)} ${timing}; transform-origin: bottom right`);
 
@@ -609,7 +675,7 @@ export function animationCss(p, scope = "") {
   rule(`.${p}-status`, `animation: ${k("status")} 2s ease-out infinite`);
 
   out.push(
-    `@media (prefers-reduced-motion: reduce) { ${sel(`[class*="${p}-anim-"]`)}, ${sel(`[class*="${p}-in-"]`)}, ${sel(`[class*="${p}-win-"]`)}, ${sel(`[class*="${p}-msg-"]`)}, ${sel(`[class*="${p}-bubble-"]`)}, ${sel(`[class*="${p}-sugg-"]`)}, ${sel(`[class*="${p}-typing"] > i`)}, ${sel(`[class*="${p}-head-"]`)}, ${sel(`[class*="${p}-avatar-"]`)}, ${sel(`.${p}-wrap-float`)}, ${sel(`.${p}-ring`)}, ${sel(`.${p}-breathe`)}, ${sel(`.${p}-status`)} { animation: none !important } }`
+    `@media (prefers-reduced-motion: reduce) { ${sel(`[class*="${p}-anim-"]`)}, ${sel(`[class*="${p}-in-"]`)}, ${sel(`[class*="${p}-win-"]`)}, ${sel(`[class*="${p}-msg-"]`)}, ${sel(`[class*="${p}-bubble-"]`)}, ${sel(`[class*="${p}-sugg-"]`)}, ${sel(`[class*="${p}-typing"] > i`)}, ${sel(`[class*="${p}-head-"]`)}, ${sel(`[class*="${p}-avatar-"]`)}, ${sel(`.${p}-wrap-float`)}, ${sel(`.${p}-ring`)}, ${sel(`.${p}-breathe`)}, ${sel(`.${p}-status`)}, ${sel(`.${p}-luxe-logo`)}, ${sel(`.${p}-halo`)}, ${sel(`.${p}-sparkle`)}, ${sel(`.${p}-shimmer`)} { animation: none !important } }`
   );
   return out.join("\n");
 }
@@ -622,6 +688,13 @@ export function uiText(config, key, fallback) {
 
 /** Whether an element is switched on (every show* option defaults to on). */
 export const shown = (config, key) => config?.chatWindow?.[key] !== false;
+
+/** Input placeholder for the visitor's language (Hindi falls back to the English one). */
+export function placeholderFor(config, language, fallback = "Type a message...") {
+  const w = config?.chatWindow || {};
+  if (language === "Hindi" && (w.inputPlaceholderHindi || "").trim()) return w.inputPlaceholderHindi;
+  return w.inputPlaceholder || fallback;
+}
 
 /** Welcome text for the visitor's language (Hindi falls back to the English text). */
 export function welcomeFor(config, language) {

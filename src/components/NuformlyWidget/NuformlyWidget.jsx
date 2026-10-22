@@ -36,13 +36,15 @@ import {
   FaMicrophone,
   FaStop,
   FaVolumeUp,
+  FaVolumeMute,
+  FaPaperclip,
 } from "react-icons/fa";
 import useSpeechRecognition from "../../hooks/useSpeechRecognition.js";
 import useTextToSpeech from "../../hooks/useTextToSpeech.js";
 import { primeNotificationSound, playBotReplySound } from "../../utils/notificationSound.js";
 import SectorCalculatorPanel from "./SectorCalculatorPanel.jsx";
 import PreChatForm from "./PreChatForm.jsx";
-import { resolveWindowStyle, animationCss, animClass, messageAnimClass, welcomeFor, readableOn, uiText, shown } from "./widgetStyle.js";
+import { resolveWindowStyle, animationCss, animClass, messageAnimClass, welcomeFor, placeholderFor, readableOn, uiText, shown } from "./widgetStyle.js";
 
 const CTA_ICON = { call: FaPhoneAlt, whatsapp: FaWhatsapp, email: FaEnvelope, custom: FaExternalLinkAlt };
 const CTA_HREF = {
@@ -65,7 +67,7 @@ const MD_COMPONENTS = {
   h1: ({ node: _node, ...props }) => <h1 {...props} className="text-[20px] font-bold mb-2" />,
   h2: ({ node: _node, ...props }) => <h2 {...props} className="text-[18px] font-semibold mb-2" />,
   h3: ({ node: _node, ...props }) => <h3 {...props} className="text-[16px] font-semibold mb-2" />,
-  p: ({ node: _node, ...props }) => <p {...props} className="mb-2" />,
+  p: ({ node: _node, ...props }) => <p {...props} className="nfw-p" />,
   strong: ({ node: _node, ...props }) => <strong {...props} className="font-bold" />,
 };
 /* eslint-enable no-unused-vars */
@@ -639,6 +641,36 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
   soundRef.current = Boolean(behavior.sound);
   const isOffline = behavior.offlineMode === "offline-message";
   const showForm = Boolean(config.forms?.enabled) && !formDone;
+  // "Listen" / "Stop" read-aloud control: inside the bot bubble, or as a small link under it.
+  const listenButton = (msg, index) => {
+    if (!behavior.textToSpeech || !ttsSupported) return null;
+    const active = speaking && speakingMessageId === index;
+    const below = look.listenBelow;
+    const StopIcon = below ? FaVolumeMute : FaStop;
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          if (active) {
+            stopSpeaking();
+            setSpeakingMessageId(null);
+          } else {
+            setSpeakingMessageId(index);
+            speak(msg.text, language === "Hindi" ? "hi-IN" : "en-US");
+          }
+        }}
+        className={
+          below
+            ? "nfw-listen-below mt-[6px] inline-flex items-center gap-1 p-0 text-[11px] text-[#6b7280] cursor-pointer transition-colors"
+            : "mt-[10px] inline-flex items-center gap-[6px] p-0 text-[14px] font-medium text-[#6b7280] hover:text-[#4b5563] cursor-pointer transition-colors"
+        }
+        style={below ? { "--nf-hover": look.primary } : undefined}
+      >
+        {active ? <StopIcon size={below ? 12 : 14} /> : <FaVolumeUp size={below ? 12 : 15} />}
+        <span>{active ? uiText(config, "stopLabel", language === "Hindi" ? "रोकें" : "Stop") : uiText(config, "listenLabel", language === "Hindi" ? "सुनें" : "Listen")}</span>
+      </button>
+    );
+  };
   const typingStyle = win.typingStyle || "dots";
   const msgAnimFor = (isUser) => messageAnimClass("nfw", win.messageAnimation, isUser);
   const suggAnim = animClass("nfw", "sugg", win.suggestionAnimation);
@@ -745,7 +777,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
     >
       {look.fontUrl ? <style>{`@import url('${look.fontUrl}');`}</style> : null}
       <style>{animationCss("nfw")}</style>
-      <style>{`.nfw-input::placeholder { color: var(--nf-ph, #9ca3af); opacity: 1 }`}</style>
+      <style>{`.nfw-input::placeholder { color: var(--nf-ph, #9ca3af); opacity: 1 } .nfw-listen-below:hover, .nfw-attach-plain:hover { color: var(--nf-hover) !important } .nfw-p { margin-bottom: var(--nf-pgap, 8px) } .nfw-p-trim .nfw-p:last-child { margin-bottom: 0 }`}</style>
       {config.appearance?.customCss ? (
         <style>{config.appearance.customCss}</style>
       ) : null}
@@ -763,21 +795,21 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
         <div className="flex items-center gap-3 min-w-0">
           {shown(config, "showHeaderAvatar") && (
           <div className={`relative shrink-0 ${animClass("nfw", "avatar", win.avatarAnimation)}`}>
-            {win.botAvatar && look.avatarTile ? (
+            {look.headerLogo && look.avatarTile ? (
               <div
                 style={{ width: look.avatarSize, height: look.avatarSize, borderRadius: look.avatarRadius, background: "rgba(255,255,255,.13)" }}
                 className="flex items-center justify-center overflow-hidden"
               >
                 <img
-                  src={win.botAvatar}
+                  src={look.headerLogo}
                   alt=""
-                  style={{ width: look.avatarSize - 5, height: look.avatarSize - 5, borderRadius: 8 }}
+                  style={{ width: look.headerLogoWidth, height: look.headerLogoHeight, borderRadius: 8 }}
                   className="object-cover"
                 />
               </div>
-            ) : win.botAvatar ? (
+            ) : look.headerLogo ? (
               <img
-                src={win.botAvatar}
+                src={look.headerLogo}
                 alt=""
                 style={{ width: look.avatarSize, height: look.avatarSize, borderRadius: look.avatarRadius }}
                 className="object-cover"
@@ -827,7 +859,8 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
               onClick={() => setShowCalculator((s) => !s)}
               aria-label={template === "energy" ? "Open BOM calculator" : "Open marketing calculator"}
               title={template === "energy" ? "BOM Calculator" : "Marketing Calculator"}
-              className="w-[20px] h-[20px] rounded-full bg-white/20 flex items-center justify-center"
+              className="w-[20px] h-[20px] rounded-full flex items-center justify-center"
+              style={{ background: look.headerButtonBg }}
             >
               <FaCalculator size={10} />
             </button>
@@ -838,7 +871,8 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
               onClick={clearChatHistory}
               aria-label="Clear chat history"
               title="Clear history"
-              className="w-[20px] h-[20px] rounded-full bg-white/20 flex items-center justify-center"
+              className="w-[20px] h-[20px] rounded-full flex items-center justify-center"
+              style={{ background: look.headerButtonBg }}
             >
               <FaTrash size={11} />
             </button>
@@ -849,8 +883,8 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               aria-label="Select language"
-              className="bg-white/20 text-[10px] px-1 py-1 rounded-[8px] outline-none border-none cursor-pointer"
-              style={{ color: look.headerText }}
+              className="text-[10px] px-1 py-1 rounded-[8px] outline-none border-none cursor-pointer"
+              style={{ color: look.headerText, background: look.headerButtonBg }}
             >
               <option value="English" style={{ color: "#111" }}>EN</option>
               <option value="Hindi" style={{ color: "#111" }}>हिं</option>
@@ -861,9 +895,10 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
             <button
               onClick={handleClose}
               aria-label="Close chat"
-              className="w-[20px] h-[20px] rounded-full bg-white/20 flex items-center justify-center"
+              className="w-[20px] h-[20px] rounded-full flex items-center justify-center"
+              style={{ background: look.headerButtonBg }}
             >
-              <FaTimes size={12} />
+              <FaTimes size={look.closeIconSize} />
             </button>
           )}
         </div>
@@ -917,7 +952,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
           {messages.length === 0 && shown(config, "showWelcome") && (
             <div style={{ marginBottom: look.sectionGap ?? look.messageGap }} className={`flex items-end gap-2 ${msgAnimFor(false)}`}>
               {win.showMessageAvatars && welcomeWidth < 100 && (
-                <Avatar src={win.botAvatar} initial={botInitial} bg={look.primary} fg={look.sendText} size={look.messageAvatarSize} />
+                <Avatar src={win.botAvatar} initial={botInitial} bg={look.primary} fg={look.sendText} size={look.messageAvatarSize} height={look.messageAvatarHeight} />
               )}
               <div
                 style={{
@@ -951,7 +986,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
                     rel={cta.type === "custom" ? "noopener noreferrer" : undefined}
                     style={{
                       background: bg,
-                      color: readableOn(bg),
+                      color: look.ctaText || readableOn(bg),
                       minHeight: look.ctaHeight,
                       fontSize: look.ctaFontSize,
                       borderRadius: look.ctaRadius,
@@ -959,7 +994,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
                     }}
                     className="flex items-center justify-center gap-2 px-3 font-medium transition-transform hover:scale-[1.03]"
                   >
-                    <Icon size={Math.round(look.ctaFontSize)} />
+                    <Icon size={Math.round(look.ctaIconSize)} />
                     <span>{cta.label}</span>
                   </a>
                 );
@@ -979,7 +1014,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
               >
                 {!isUser && win.showMessageAvatars && (
                   <div className={look.avatarTop ? "mt-1 shrink-0" : "shrink-0"}>
-                    <Avatar src={win.botAvatar} initial={botInitial} bg={look.primary} fg={look.sendText} size={look.messageAvatarSize} />
+                    <Avatar src={win.botAvatar} initial={botInitial} bg={look.primary} fg={look.sendText} size={look.messageAvatarSize} height={look.messageAvatarHeight} />
                   </div>
                 )}
                 <div style={{ maxWidth: `${look.bubbleMaxWidthPct}%` }} className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
@@ -992,8 +1027,9 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
                       lineHeight: bubbleLineHeight,
                       boxShadow: isUser ? look.userShadow : "none",
                       border: isUser ? "none" : look.botBorder,
+                      ...(look.paragraphGap != null ? { "--nf-pgap": `${look.paragraphGap}px` } : {}),
                     }}
-                    className={`${bubbleLineHeight ? "" : "leading-[1.6] "}whitespace-pre-wrap break-words overflow-hidden`}
+                    className={`${bubbleLineHeight ? "" : "leading-[1.6] "}${look.paragraphGap != null ? "nfw-p-trim " : ""}whitespace-pre-wrap break-words overflow-hidden`}
                   >
                     {msg.file && kind === "image" && msg.file.preview && (
                       <img src={msg.file.preview} alt={msg.file.name} className="rounded-xl mb-3 max-w-full border" />
@@ -1015,34 +1051,9 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
                       </div>
                     )}
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{msg.text}</ReactMarkdown>
-                    {!isUser && behavior.textToSpeech && ttsSupported && (
-                      speaking && speakingMessageId === index ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            stopSpeaking();
-                            setSpeakingMessageId(null);
-                          }}
-                          className="mt-[10px] inline-flex items-center gap-[6px] p-0 text-[14px] font-medium text-[#6b7280] hover:text-[#4b5563] cursor-pointer transition-colors"
-                        >
-                          <FaStop size={14} />
-                          <span>{uiText(config, "stopLabel", language === "Hindi" ? "रोकें" : "Stop")}</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSpeakingMessageId(index);
-                            speak(msg.text, language === "Hindi" ? "hi-IN" : "en-US");
-                          }}
-                          className="mt-[10px] inline-flex items-center gap-[6px] p-0 text-[14px] font-medium text-[#6b7280] hover:text-[#4b5563] cursor-pointer transition-colors"
-                        >
-                          <FaVolumeUp size={15} />
-                          <span>{uiText(config, "listenLabel", language === "Hindi" ? "सुनें" : "Listen")}</span>
-                        </button>
-                      )
-                    )}
+                    {!isUser && !look.listenBelow && listenButton(msg, index)}
                   </div>
+                  {!isUser && look.listenBelow && listenButton(msg, index)}
                   {behavior.showTimestamps && msg.ts && (
                     <span className="mt-[3px] text-[10px] opacity-50">{timeOf(msg.ts)}</span>
                   )}
@@ -1062,15 +1073,20 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
           })}
 
           {loading && behavior.typingIndicator && (
-            <div style={{ marginBottom: look.messageGap }} className={`flex justify-start ${msgAnimFor(false)}`}>
+            <div style={{ marginBottom: look.messageGap }} className={`flex ${look.avatarTop ? "items-start" : "items-end"} gap-2 justify-start ${msgAnimFor(false)}`}>
+              {look.typingAvatar && win.showMessageAvatars && (
+                <div className={look.avatarTop ? "mt-1 shrink-0" : "shrink-0"}>
+                  <Avatar src={win.botAvatar} initial={botInitial} bg={look.primary} fg={look.sendText} size={look.messageAvatarSize} />
+                </div>
+              )}
               <div
                 style={{ background: botBubbleColor, borderRadius: look.botRadius, border: look.botBorder, "--nf-dot": look.primary, "--nf-dot-size": `${look.typingDot}px` }}
                 className={`nfw-typing nfw-typing-${typingStyle} px-4 py-3`}
                 aria-label="Typing"
               >
-                <i />
-                <i />
-                <i />
+                {[0, 1, 2].map((n) => (
+                  <i key={n} style={look.typingColors ? { background: look.typingColors[n] } : undefined} />
+                ))}
               </div>
             </div>
           )}
@@ -1169,8 +1185,8 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
         )}
 
         <div
-          className="relative flex items-center border-2 px-3 py-2"
-          style={{ borderColor: look.primary, background: inputBg, borderRadius: look.inputRadius, ...(look.inputHeight ? { minHeight: look.inputHeight } : {}) }}
+          className="relative flex items-center border-2"
+          style={{ borderColor: look.primary, background: inputBg, borderRadius: look.inputRadius, padding: `${look.inputPadY}px ${look.inputPadX}px`, ...(look.inputHeight ? { minHeight: look.inputHeight } : {}) }}
         >
           {behavior.attachments && (
             <>
@@ -1182,15 +1198,27 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
                 accept="image/*,video/*,audio/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,application/zip,application/x-zip-compressed"
                 onChange={handleFileSelect}
               />
-              <button
-                type="button"
-                aria-label="Attach a file"
-                onClick={() => fileInputRef.current?.click()}
-                className="mr-2 hover:scale-110 transition-all duration-200"
-                style={{ color: look.primary }}
-              >
-                <FaPlus size={18} />
-              </button>
+              {look.attachIcon === "paperclip" ? (
+                <button
+                  type="button"
+                  aria-label="Attach a file"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="nfw-attach-plain mr-2 text-[#6b7280] transition-colors"
+                  style={{ "--nf-hover": look.primary }}
+                >
+                  <FaPaperclip size={16} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Attach a file"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mr-2 hover:scale-110 transition-all duration-200"
+                  style={{ color: look.primary }}
+                >
+                  <FaPlus size={18} />
+                </button>
+              )}
             </>
           )}
 
@@ -1208,7 +1236,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
             readOnly={listening}
             type="text"
             autoComplete="off"
-            placeholder={!isOnline ? "No internet connection…" : listening ? uiText(config, "listeningPlaceholder", "Listening...") : win.inputPlaceholder || "Type a message..."}
+            placeholder={!isOnline ? "No internet connection…" : listening ? uiText(config, "listeningPlaceholder", "Listening...") : placeholderFor(config, language)}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
@@ -1251,7 +1279,7 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
             {loading ? (
               <div className="w-[14px] h-[14px] border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : (
-              <FaPaperPlane size={15} style={{ color: canSend ? look.sendText : "#9ca3af" }} />
+              <FaPaperPlane size={look.sendIconSize} style={{ color: canSend ? look.sendText : "#9ca3af" }} />
             )}
           </button>
         </div>
@@ -1272,9 +1300,9 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
 }
 
 // Round bot avatar shown beside bot messages (config.showMessageAvatars).
-function Avatar({ src, initial, bg, fg, size = 26 }) {
+function Avatar({ src, initial, bg, fg, size = 26, height = size }) {
   return src ? (
-    <img src={src} alt="" style={{ width: size, height: size }} className="rounded-full object-cover shrink-0" />
+    <img src={src} alt="" style={{ width: size, height }} className="rounded-full object-cover shrink-0" />
   ) : (
     <div
       className="rounded-full shrink-0 flex items-center justify-center font-semibold"

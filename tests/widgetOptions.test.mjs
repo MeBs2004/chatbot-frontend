@@ -92,6 +92,8 @@ before(async () => {
     "chatWindow.messageAnimation": cfg.MESSAGE_ANIMATIONS,
     "chatWindow.windowAnimation": cfg.WINDOW_ANIMATIONS,
     "chatWindow.typingStyle": cfg.TYPING_STYLES,
+    "chatWindow.listenPlacement": cfg.LISTEN_PLACEMENTS,
+    "chatWindow.attachIcon": cfg.ATTACH_ICONS,
     "chatWindow.headerAnimation": cfg.HEADER_ANIMATIONS,
     "chatWindow.avatarAnimation": cfg.AVATAR_ANIMATIONS,
     "chatWindow.sendAnimation": cfg.SEND_ANIMATIONS,
@@ -148,7 +150,12 @@ const SETUP = {
   "chatWindow.offlineMessage": (c) => { c.behavior.offlineMode = "offline-message"; },
   "chatWindow.listeningPlaceholder": (c) => { c.behavior.voiceInput = true; },
   "chatWindow.welcomeMessageHindi": (c) => { c.language.defaultLanguage = "Hindi"; },
+  "chatWindow.inputPlaceholderHindi": (c) => { c.language.defaultLanguage = "Hindi"; },
   "chatWindow.messageAvatarSize": (c) => { c.chatWindow.showMessageAvatars = true; },
+  "chatWindow.messageAvatarHeight": (c) => { c.chatWindow.showMessageAvatars = true; c.chatWindow.botAvatar = "https://example.test/a.png"; },
+  "chatWindow.typingAvatar": (c) => { c.chatWindow.showMessageAvatars = true; },
+  "chatWindow.listenPlacement": (c) => { c.behavior.textToSpeech = true; },
+  "chatWindow.attachIcon": (c) => { c.behavior.attachments = true; },
   "chatWindow.welcomeMaxWidthPct": (c) => { c.chatWindow.welcomeMessage = "Hello there"; },
   "chatWindow.statusDotColor": (c) => { c.chatWindow.statusStyle = "inline"; },
   "behavior.autoOpenDelay": (c) => { c.behavior.autoOpen = true; },
@@ -157,7 +164,10 @@ const SETUP = {
 };
 
 // Size options of things that only exist in some states.
-for (const key of ["ctaHeight", "ctaWidth", "ctaFontSize", "ctaRadius", "ctaGap"]) {
+for (const key of ["headerLogoWidth", "headerLogoHeight"]) {
+  SETUP[`chatWindow.${key}`] = (c) => { c.chatWindow.avatarShape = "rounded"; c.chatWindow.botAvatar = "https://example.test/a.png"; };
+}
+for (const key of ["ctaHeight", "ctaWidth", "ctaFontSize", "ctaRadius", "ctaGap", "ctaTextColor", "ctaIconSize"]) {
   SETUP[`chatWindow.${key}`] = (c) => { c.ctas = [{ type: "call", enabled: true, label: "Call us", value: "+10000000" }]; };
 }
 for (const key of ["formTitle", "formSubtitle", "formButtonLabel"]) {
@@ -301,7 +311,7 @@ test("every customization option (and enum value) changes what the REAL widget r
     else if (typeof def === "boolean") values = [!def];
     else if (typeof def === "number") values = [def + 4];
     else if (typeof def === "string" && /^#[0-9a-f]{6}$/i.test(def)) values = ["#123456"];
-    else if (def === "") values = [/Color$|Background$/.test(path) ? "#123456" : /logoUrl|botAvatar/.test(path) ? "https://example.test/x.png" : path === "appearance.customCss" ? ".x{color:red}" : "ZQ-sample"];
+    else if (def === "") values = [/Color\d?$|Background$/.test(path) ? "#123456" : /logoUrl|botAvatar|headerLogo$/.test(path) ? "https://example.test/x.png" : path === "appearance.customCss" ? ".x{color:red}" : "ZQ-sample"];
     else if (typeof def === "string") values = ["ZQ-sample"];
     else values = [];
 

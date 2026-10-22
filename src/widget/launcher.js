@@ -86,7 +86,7 @@ export function mountLauncher(initialModel, { onClick }) {
     close.textContent = "✕";
     Object.assign(close.style, {
       position: "absolute", top: "-6px", right: "-6px", width: "18px", height: "18px", borderRadius: "50%",
-      border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", fontSize: "10px", lineHeight: "1",
+      border: `1px solid ${model.bubbleBorder || "#e5e7eb"}`, background: model.bubbleBg || "#fff", color: "#6b7280", fontSize: "10px", lineHeight: "1",
       cursor: "pointer", padding: "0",
     });
     close.onclick = () => {
@@ -121,15 +121,22 @@ export function mountLauncher(initialModel, { onClick }) {
       const avatar = document.createElement("img");
       avatar.setAttribute("src", model.bubbleAvatarSrc);
       avatar.setAttribute("alt", "");
-      Object.assign(avatar.style, { width: "16px", height: "16px", borderRadius: "50%", objectFit: "cover", marginTop: "2px", flexShrink: "0" });
+      Object.assign(avatar.style, {
+        width: "16px", height: "16px", borderRadius: "50%", objectFit: "cover", marginTop: "2px", flexShrink: "0",
+        ...(model.bubbleAvatarRing ? { border: `1px solid ${model.bubbleBorder}`, boxSizing: "border-box" } : {}),
+      });
       bubble.appendChild(avatar);
     }
     const dots = document.createElement("div");
     dots.className = "nf-bdots";
     dots.style.marginTop = "3px";
+    dots.style.setProperty("--nf-bdot", model.bubbleDot || "#9ca3af");
     for (let n = 0; n < 3; n += 1) dots.appendChild(document.createElement("i"));
     const text = document.createElement("p");
-    Object.assign(text.style, { margin: "0", fontWeight: "500", lineHeight: "1.35", paddingTop: "1px" });
+    Object.assign(text.style, {
+      margin: "0", fontWeight: "500", lineHeight: "1.35", paddingTop: "1px",
+      ...(model.bubbleLetterSpacing ? { letterSpacing: `${model.bubbleLetterSpacing}px` } : {}),
+    });
     bubble.append(dots, text);
     const close = document.createElement("button");
     close.type = "button";
@@ -137,14 +144,14 @@ export function mountLauncher(initialModel, { onClick }) {
     close.textContent = "✕";
     Object.assign(close.style, {
       position: "absolute", top: "-5px", right: "-5px", width: "14px", height: "14px", borderRadius: "50%",
-      border: "1px solid #e5e7eb", background: "#fff", color: "#9ca3af", fontSize: "7px", lineHeight: "1", cursor: "pointer", padding: "0",
+      border: `1px solid ${model.bubbleBorder || "#e5e7eb"}`, background: model.bubbleBg || "#fff", color: "#9ca3af", fontSize: "7px", lineHeight: "1", cursor: "pointer", padding: "0",
     });
     bubble.appendChild(close);
     if (model.bubbleTail) {
       const tail = document.createElement("div");
       Object.assign(tail.style, {
-        position: "absolute", bottom: "-5px", [model.side]: "20px", width: "10px", height: "10px", background: "#fff",
-        borderBottom: "1px solid #e5e7eb", borderRight: "1px solid #e5e7eb", transform: "rotate(45deg)",
+        position: "absolute", bottom: "-5px", [model.side]: "20px", width: "10px", height: "10px", background: model.bubbleBg || "#fff",
+        borderBottom: `1px solid ${model.bubbleBorder || "#e5e7eb"}`, borderRight: `1px solid ${model.bubbleBorder || "#e5e7eb"}`, transform: "rotate(45deg)",
       });
       bubble.appendChild(tail);
     }
@@ -233,19 +240,47 @@ export function mountLauncher(initialModel, { onClick }) {
     bubble.setAttribute("aria-live", "polite");
     bubble.className = animClass("nf", "bubble", model.bubbleAnimation);
     Object.assign(bubble.style, {
-      display: "none", position: "absolute", bottom: `${px + (model.bubbleEffect === "typing" ? 17 : 14)}px`, [model.side]: "0", width: "max-content",
+      display: "none", position: "absolute", bottom: `${px + (model.bubbleOffset ?? (model.bubbleEffect === "typing" ? 17 : 14))}px`, [model.side]: "0", width: "max-content",
       maxWidth: `min(${model.bubbleMaxWidth || 220}px, calc(100vw - 90px))`, padding: model.bubbleEffect === "typing" ? "7px 12px 7px 8px" : "10px 14px",
-      minWidth: model.bubbleEffect === "typing" ? "150px" : "", background: "#fff", color: "#374151", border: "1px solid #e5e7eb",
+      minWidth: model.bubbleEffect === "typing" ? "150px" : "", background: model.bubbleBg || "#fff", color: model.bubbleText || "#374151",
+      border: `1px solid ${model.bubbleBorder || "#e5e7eb"}`,
       borderRadius: "12px", boxShadow: "0 6px 20px rgba(0,0,0,.12)", fontSize: `${model.bubbleFontPx || 13}px`, lineHeight: "1.4",
     });
     root.appendChild(bubble);
 
-    if (model.wholeLauncherFloat) {
+    if (model.wholeLauncherFloat && !model.luxe) {
       const ring = document.createElement("span");
       ring.className = "nf-ring";
       ring.style.setProperty("--nf-c", model.color || "#067647");
       ring.setAttribute("aria-hidden", "true");
       root.appendChild(ring);
+    }
+
+    if (model.luxe) {
+      // A soft halo pulsing out of the launcher, and a few sparkles twinkling around it.
+      const halo = document.createElement("span");
+      halo.className = "nf-halo";
+      halo.setAttribute("aria-hidden", "true");
+      halo.style.setProperty("--nf-g", model.effectColor || "#d4af37");
+      root.appendChild(halo);
+      const sparkles = document.createElement("div");
+      sparkles.className = "nf-sparkles";
+      sparkles.setAttribute("aria-hidden", "true");
+      sparkles.style.setProperty("--nf-g", model.effectColor || "#d4af37");
+      sparkles.style.setProperty("--nf-s", model.sparkleColor || "#e7c873");
+      const count = 5;
+      for (let n = 0; n < count; n += 1) {
+        const angle = (n / count) * Math.PI * 2 + Math.random() * 0.8;
+        const radius = 34 + Math.random() * 16;
+        const s = document.createElement("span");
+        s.className = "nf-sparkle";
+        s.textContent = "✦";
+        Object.assign(s.style, { top: `${40 + Math.sin(angle) * radius}px`, left: `${40 + Math.cos(angle) * radius}px` });
+        s.style.setProperty("--dur", `${3.2 + Math.random() * 2.2}s`);
+        s.style.setProperty("--delay", `${Math.random() * 4}s`);
+        sparkles.appendChild(s);
+      }
+      root.appendChild(sparkles);
     }
 
     const button = document.createElement("button");
@@ -276,8 +311,22 @@ export function mountLauncher(initialModel, { onClick }) {
       button.appendChild(chip);
       button.style.overflow = "visible";
     } else {
-      const glyph = iconNode({ ...model.icon, color: model.iconColor }, iconPx, model.logoOnly ? "contain" : "cover");
-      if (model.wholeLauncherFloat) {
+      const glyph = iconNode({ ...model.icon, color: model.iconColor }, iconPx, model.logoOnly && !model.luxe ? "contain" : "cover");
+      if (model.luxe) {
+        // The logo fills the circle (zoomed by logoScale), breathes, glows now and then, and catches a shimmer.
+        const inner = document.createElement("div");
+        inner.className = "nf-luxe-logo";
+        inner.style.setProperty("--nf-g", model.effectColor || "#d4af37");
+        if (model.icon.kind === "image") {
+          const scale = `${model.logoScale || 100}%`;
+          Object.assign(glyph.style, { width: scale, height: scale, minWidth: scale, minHeight: scale, flexShrink: "0", borderRadius: "50%" });
+        }
+        const shine = document.createElement("span");
+        shine.className = "nf-shimmer";
+        shine.setAttribute("aria-hidden", "true");
+        inner.append(glyph, shine);
+        button.appendChild(inner);
+      } else if (model.wholeLauncherFloat) {
         // The logo gently breathes (and glows now and then) inside the button.
         const inner = document.createElement("div");
         inner.className = "nf-breathe";
@@ -299,8 +348,8 @@ export function mountLauncher(initialModel, { onClick }) {
       const badge = document.createElement("span");
       if (model.badgePulse) badge.className = "nf-badge-pulse";
       Object.assign(badge.style, {
-        position: "absolute", top: "2px", right: "2px", width: `${model.badgePx || 12}px`, height: `${model.badgePx || 12}px`, borderRadius: "50%",
-        background: model.badgeColor || "#ef4444", border: "2px solid #fff",
+        position: "absolute", top: model.logoOnly ? "0" : "2px", right: model.logoOnly ? "0" : "2px", width: `${model.badgePx || 12}px`, height: `${model.badgePx || 12}px`, borderRadius: "50%",
+        background: model.badgeColor || "#ef4444", border: model.logoOnly ? "1px solid #fff" : "2px solid #fff", boxSizing: "border-box",
       });
       button.appendChild(badge);
       badgeEl = badge;
