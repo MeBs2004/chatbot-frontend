@@ -3,9 +3,13 @@
 // Serves every snippet that has no data-chatbot-id (Nuform Social, OYA
 // and any other existing install). Do not add new behaviour here.
 
-const BASE_URL = "https://chatbot-frontend-nine-psi.vercel.app";
-
-export function startLegacyLauncher({ companyId, chatbotId, position, bottom, side }) {
+export function startLegacyLauncher({ companyId, chatbotId, position, bottom, side, scriptSrc }) {
+  // Derived from wherever this widget.js was actually loaded from —
+  // same pattern dynamicLauncher.js already uses — instead of a
+  // hardcoded deployment URL, so this keeps working unchanged if the
+  // widget is ever served from a different host. Falls back to the
+  // historical default only if scriptSrc is somehow unavailable.
+  const BASE_URL = scriptSrc ? new URL(scriptSrc).origin : "https://chatbot-frontend-nine-psi.vercel.app";
   const isOya = companyId === "oya-gemkara";
 
   // ==========================================

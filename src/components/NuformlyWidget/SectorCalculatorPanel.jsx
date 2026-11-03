@@ -19,8 +19,29 @@ const MARKETING_FIELDS = {
     { key: "denominator", label: "Visits or Clicks" },
   ],
   cpl: [{ key: "spend", label: "Ad Spend" }, { key: "leads", label: "Leads" }],
+  cpa: [{ key: "spend", label: "Ad Spend" }, { key: "actions", label: "Conversions / Actions" }],
+  cac: [{ key: "totalAcquisitionCost", label: "Total Acquisition Cost" }, { key: "newCustomers", label: "New Customers" }],
+  engagement_rate: [{ key: "engagements", label: "Engagements (likes+comments+shares)" }, { key: "reachOrFollowers", label: "Reach or Followers" }],
   leads_from_budget: [{ key: "budget", label: "Budget" }, { key: "costPerLead", label: "Cost per Lead" }],
   budget_from_leads: [{ key: "targetLeads", label: "Target Leads" }, { key: "costPerLead", label: "Cost per Lead" }],
+  // Combined view — every field is optional ("fill what you have"):
+  // the backend computes whichever metrics it has enough inputs for
+  // and skips the rest, rather than requiring one fixed pair.
+  performance_analysis: [
+    { key: "revenue", label: "Revenue (optional)" },
+    { key: "cost", label: "Total Cost (optional)" },
+    { key: "spend", label: "Ad Spend (optional)" },
+    { key: "clicks", label: "Clicks (optional)" },
+    { key: "impressions", label: "Impressions (optional)" },
+    { key: "leads", label: "Leads (optional)" },
+    { key: "actions", label: "Conversions / Actions (optional)" },
+    { key: "conversions", label: "Conversions, for conversion rate (optional)" },
+    { key: "denominator", label: "Visits or Clicks, for conversion rate (optional)" },
+    { key: "totalAcquisitionCost", label: "Total Acquisition Cost (optional)" },
+    { key: "newCustomers", label: "New Customers (optional)" },
+    { key: "engagements", label: "Engagements (optional)" },
+    { key: "reachOrFollowers", label: "Reach or Followers (optional)" },
+  ],
 };
 
 const MARKETING_LABELS = {
@@ -31,8 +52,12 @@ const MARKETING_LABELS = {
   ctr: "CTR",
   conversion_rate: "Conversion Rate",
   cpl: "CPL",
+  cpa: "CPA",
+  cac: "CAC",
+  engagement_rate: "Engagement Rate",
   leads_from_budget: "Estimated Leads from Budget",
   budget_from_leads: "Estimated Budget from Target Leads",
+  performance_analysis: "Marketing ROI / Performance Analysis",
 };
 
 const ENERGY_FIELDS = [
@@ -48,6 +73,18 @@ const ENERGY_FIELDS = [
 ];
 
 function formatCalculatorMessage(kind, data) {
+  if (kind === "marketing" && data.result?.isAnalysis) {
+    const { metrics, computedCount, note } = data.result;
+    if (computedCount === 0) return `**Marketing ROI / Performance Analysis**\n\n${note}`;
+    const lines = ["**Marketing ROI / Performance Analysis**", ""];
+    Object.entries(metrics).forEach(([key, m]) => {
+      const label = MARKETING_LABELS[key] || key;
+      lines.push(`**${label}**: ${m.value === null ? "unavailable" : `${m.value} ${m.unit}`}${m.benchmark ? ` — _${m.benchmark}_` : ""}`);
+    });
+    lines.push("", `_${note}_`);
+    return lines.join("\n");
+  }
+
   if (kind === "marketing") {
     const { calculation, result } = data;
     const label = MARKETING_LABELS[calculation] || calculation;

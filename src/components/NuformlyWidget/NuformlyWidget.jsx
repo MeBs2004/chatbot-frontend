@@ -43,6 +43,10 @@ import useSpeechRecognition from "../../hooks/useSpeechRecognition.js";
 import useTextToSpeech from "../../hooks/useTextToSpeech.js";
 import { primeNotificationSound, playBotReplySound } from "../../utils/notificationSound.js";
 import SectorCalculatorPanel from "./SectorCalculatorPanel.jsx";
+import EnergyJourneyPanel from "./EnergyJourneyPanel.jsx";
+import BomTable from "./BomTable.jsx";
+import EducationSuggestions from "./EducationSuggestions.jsx";
+import MarketingLeadCapture from "./MarketingLeadCapture.jsx";
 import PreChatForm from "./PreChatForm.jsx";
 import { resolveWindowStyle, animationCss, animClass, messageAnimClass, welcomeFor, placeholderFor, readableOn, uiText, shown } from "./widgetStyle.js";
 
@@ -690,8 +694,21 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
   const template = chatbotMeta?.template;
   const hasCalculator = template === "digital_marketing" || template === "energy";
 
-  const handleCalculatorResult = (text) => {
-    setMessages((prev) => [...prev, { id: crypto.randomUUID(), ts: Date.now(), text, sender: "bot" }]);
+  // Accepts either a plain markdown string (existing calculator panels,
+  // and the Energy journey's own final confirmation message) or a rich
+  // `{ text, type, payload }` result (the Energy journey's BOM card —
+  // see EnergyJourneyPanel.jsx's generateSolution) rendered via the
+  // matching `msg.type` branch in the message list below.
+  const handleCalculatorResult = (resultOrText) => {
+    const isRich = resultOrText && typeof resultOrText === "object";
+    const msg = {
+      id: crypto.randomUUID(),
+      ts: Date.now(),
+      sender: "bot",
+      text: isRich ? resultOrText.text : resultOrText,
+      ...(isRich && resultOrText.type ? { type: resultOrText.type, payload: resultOrText.payload } : {}),
+    };
+    setMessages((prev) => [...prev, msg]);
     setShowSuggestions(false);
   };
 
@@ -857,8 +874,8 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
           {hasCalculator && (
             <button
               onClick={() => setShowCalculator((s) => !s)}
-              aria-label={template === "energy" ? "Open BOM calculator" : "Open marketing calculator"}
-              title={template === "energy" ? "BOM Calculator" : "Marketing Calculator"}
+              aria-label={template === "energy" ? "Open Energy Assistant" : "Open marketing calculator"}
+              title={template === "energy" ? "Energy Assistant" : "Marketing Calculator"}
               className="w-[20px] h-[20px] rounded-full flex items-center justify-center"
               style={{ background: look.headerButtonBg }}
             >
@@ -919,6 +936,15 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
               }}
             />
           </div>
+        ) : showCalculator && template === "energy" ? (
+          <EnergyJourneyPanel
+            api={api}
+            chatbotId={chatbotId}
+            visitorId={localStorage.getItem("visitorId")}
+            primaryColor={win.primaryColor}
+            onResult={handleCalculatorResult}
+            onClose={() => setShowCalculator(false)}
+          />
         ) : showCalculator ? (
           <SectorCalculatorPanel
             api={api}
@@ -1050,7 +1076,16 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
                         </div>
                       </div>
                     )}
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{msg.text}</ReactMarkdown>
+                    {msg.type === "bom" && msg.payload ? (
+                      <>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{msg.text}</ReactMarkdown>
+                        <div className="mt-2">
+                          <BomTable {...msg.payload} />
+                        </div>
+                      </>
+                    ) : (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{msg.text}</ReactMarkdown>
+                    )}
                     {!isUser && !look.listenBelow && listenButton(msg, index)}
                   </div>
                   {!isUser && look.listenBelow && listenButton(msg, index)}
@@ -1091,7 +1126,26 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
             </div>
           )}
 
-          {showSuggestions && shown(config, "showSuggestions") && suggestions.length > 0 && (
+          {showSuggestions && shown(config, "showSuggestions") && template === "education" && (
+            <EducationSuggestions
+              client={api}
+              chatbotId={chatbotId}
+              primaryColor={look.primary}
+              onAnswer={({ question, answer }) => {
+                // Deterministic, stored answers — never routed through the
+                // generic AI (see the comment on the Energy "Bill of
+                // Materials" chip fix above for the bug class this avoids).
+                setMessages((prev) => [
+                  ...prev,
+                  { id: crypto.randomUUID(), ts: Date.now(), sender: "user", text: question },
+                  { id: crypto.randomUUID(), ts: Date.now(), sender: "bot", text: answer },
+                ]);
+                setShowSuggestions(false);
+              }}
+            />
+          )}
+
+          {showSuggestions && shown(config, "showSuggestions") && template !== "education" && suggestions.length > 0 && (
             <div
               style={{ gap: look.suggestionGap, ...(look.suggestionWidth ? { display: "flex", flexWrap: "wrap" } : { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }) }}
               className="mt-3"
@@ -1099,7 +1153,25 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
               {suggestions.map((item, index) => (
                 <button
                   key={`suggestion-${index}-${item}`}
-                  onClick={() => handleSendMessage(item)}
+                  onClick={() => {
+                    // The "Bill of Materials" suggestion has no real data to answer
+                    // with as a plain chat message — it needs the guided fuel/project
+                    // -type/question flow to compute an actual BOM. Open that flow
+                    // directly instead of sending the chip text to the generic AI,
+                    // which has no fuel/product context to work from.
+                    if (template === "energy" && /bill of materials/i.test(item)) {
+                      setShowCalculator(true);
+                      return;
+                    }
+                    // Same bug class, same fix: "Digital Marketing Calculator" has
+                    // no real numbers to answer with as plain text — it needs the
+                    // deterministic calculator panel, not a generic AI guess.
+                    if (template === "digital_marketing" && /calculator/i.test(item)) {
+                      setShowCalculator(true);
+                      return;
+                    }
+                    handleSendMessage(item);
+                  }}
                   style={{
                     ...suggestionLook,
                     animationDelay: `${index * 70}ms`,
@@ -1116,6 +1188,22 @@ function NuformlyWidget({ companyId, chatbotId, embed = false, token = null }) {
                 </button>
               ))}
             </div>
+          )}
+
+          {showSuggestions && shown(config, "showSuggestions") && template === "digital_marketing" && (
+            <MarketingLeadCapture
+              client={api}
+              chatbotId={chatbotId}
+              primaryColor={look.primary}
+              onSubmitted={({ question, answer }) => {
+                setMessages((prev) => [
+                  ...prev,
+                  { id: crypto.randomUUID(), ts: Date.now(), sender: "user", text: question },
+                  { id: crypto.randomUUID(), ts: Date.now(), sender: "bot", text: answer },
+                ]);
+                setShowSuggestions(false);
+              }}
+            />
           )}
 
           {showRecordingBubble && (

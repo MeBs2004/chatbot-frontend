@@ -32,5 +32,6 @@ import { startDynamicLauncher } from "./dynamicLauncher.js";
     position: attrs.position || "right",
     bottom: attrs.bottom,
     side: attrs.side,
+    scriptSrc: script.src,
   });
 })();
